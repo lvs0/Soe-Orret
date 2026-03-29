@@ -1,0 +1,39 @@
+# Ruche Configuration - SOE Data Collection Pipeline
+sources:
+  github:
+    enabled: true
+    topics: [python, machine-learning, llm, ai]
+    max_issues: 50
+    
+  wikipedia:
+    enabled: true
+    languages: [en, fr]
+    categories: [Artificial_intelligence, Machine_learning]
+    
+  stackoverflow:
+    enabled: true
+    tags: [python, machine-learning, nlp]
+    pages: 3
+    
+  arxiv:
+    enabled: true
+    categories: [cs.AI, cs.LG]
+    max_papers: 30
+    
+filters:
+  quality:
+    min_content_length: 100
+    min_quality_score: 0.5
+    
+  dedup:
+    enabled: true
+    
+  language:
+    enabled: true
+    allowed: [en, fr]
+
+scheduler:
+  enabled: true
+  interval_hours: 24
+  max_runtime_minutes: 60
+  max_data_mb: 2048

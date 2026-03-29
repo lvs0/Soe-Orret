@@ -1,0 +1,375 @@
+#!/usr/bin/env python3
+"""
+SYNAPSE CLI - Interface comme Ollama mais pour SYNAPSE
+Usage: synapse run <model> [options]
+       synapse serve
+       synapse list
+       synapse pull <model>
+"""
+import os
+import sys
+import json
+import argparse
+import subprocess
+import requests
+import time
+from pathlib import Path
+from typing import Dict, List, Optional, Any
+
+# Configuration globale
+SYNAPSE_HOME = os.path.expanduser("~/.synapse")
+MODELS_DIR = os.path.join(SYNAPSE_HOME, "models")
+CACHE_DIR = os.path.join(SYNAPSE_HOME, "cache")
+CONFIG_FILE = os.path.join(SYNAPSE_HOME, "config.json")
+
+# Couleurs pour le terminal
+class Colors:
+    HEADER = '\033[95m'
+    BLUE = '\033[94m'
+    CYAN = '\033[96m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+
+def ensure_dirs():
+    """Crée les répertoires nécessaires."""
+    os.makedirs(MODELS_DIR, exist_ok=True)
+    os.makedirs(CACHE_DIR, exist_ok=True)
+
+def load_config() -> Dict:
+    """Charge la configuration."""
+    if os.path.exists(CONFIG_FILE):
+        with open(CONFIG_FILE, 'r') as f:
+            return json.load(f)
+    return {
+        "models": {},
+        "default_model": None,
+        "ollama_url": "http://localhost:11434",
+        "server_port": 11435
+    }
+
+def save_config(config: Dict):
+    """Sauvegarde la configuration."""
+    ensure_dirs()
+    with open(CONFIG_FILE, 'w') as f:
+        json.dump(config, f, indent=2)
+
+def log(msg: str, level: str = "INFO"):
+    """Log avec timestamp."""
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+    print(f"{Colors.CYAN}[{timestamp}]{Colors.ENDC} {Colors.BLUE}[{level}]{Colors.ENDC} {msg}")
+
+def error(msg: str):
+    print(f"{Colors.RED}Error:{Colors.ENDC} {msg}")
+    sys.exit(1)
+
+def get_available_models() -> List[Dict]:
+    """Liste les modèles disponibles."""
+    config = load_config()
+    models = []
+    
+    # Modèles intégrés
+    builtin = [
+        {"name": "synapse-small", "size": "~150MB", "params": "35M", "desc": "Modèle synaptique petit - CPU only"},
+        {"name": "synapse-base", "size": "~350MB", "params": "125M", "desc": "Modèle synaptique base - CPU only"},
+        {"name": "synapse-plus", "size": "~700MB", "params": "350M", "desc": "Modèle synaptique+ - CPU/GPU"},
+    ]
+    
+    for m in builtin:
+        m["source"] = "builtin"
+        m["status"] = "ready" if m["name"] in config.get("models", {}) else "available"
+        models.append(m)
+    
+    # Modèles скачанные
+    for name, info in config.get("models", {}).items():
+        if info.get("downloaded"):
+            models.append({
+                "name": name,
+                "size": info.get("size", "?"),
+                "params": info.get("params", "?"),
+                "desc": info.get("desc", ""),
+                "source": "downloaded",
+                "status": "ready"
+            })
+    
+    return models
+
+def cmd_list(args):
+    """Liste les modèles disponibles."""
+    models = get_available_models()
+    
+    print(f"\n{Colors.BOLD}Available Models:{Colors.ENDC}\n")
+    print(f"{'Name':<25} {'Size':<12} {'Params':<10} {'Status':<12}")
+    print("-" * 60)
+    
+    for m in models:
+        status_color = Colors.GREEN if m["status"] == "ready" else Colors.YELLOW
+        print(f"{m['name']:<25} {m['size']:<12} {m['params']:<10} {status_color}{m['status']}{Colors.ENDC}")
+    
+    print()
+
+def cmd_run(args):
+    """Exécute un modèle en mode interactif."""
+    model_name = args.model or load_config().get("default_model")
+    if not model_name:
+        error("No model specified. Use: synapse run <model>")
+    
+    log(f"Loading model: {model_name}")
+    
+    # Import et exécution du modèle
+    try:
+        from synapse_engine import SynapseModel, SynapseConfig, create_model
+        
+        # Créer le modèle
+        config = SynapseConfig(d_model=128, state_size=32, num_heads=4, num_layers=2)
+        model = create_model(config)
+        
+        print(f"\n{Colors.GREEN}✓ Model loaded: {model_name}{Colors.ENDC}")
+        print(f"   Type 'quit' or 'exit' to stop\n")
+        
+        # Mode interactif
+        prompt_history = []
+        
+        while True:
+            try:
+                user_input = input(f"{Colors.CYAN}> {Colors.ENDC}")
+                
+                if user_input.lower() in ["quit", "exit", "/exit"]:
+                    break
+                
+                if not user_input.strip():
+                    continue
+                
+                # Génération
+                start = time.time()
+                result = model.generate(
+                    user_input, 
+                    max_tokens=args.nums or 100,
+                    temperature=args.temperature or 0.7
+                )
+                elapsed = (time.time() - start) * 1000
+                
+                print(f"\n{Colors.BLUE}{result}{Colors.ENDC}")
+                print(f"{Colors.DIM}({elapsed:.0f}ms){Colors.ENDC}\n")
+                
+            except KeyboardInterrupt:
+                break
+            except EOFError:
+                break
+    
+    except ImportError as e:
+        error(f"Cannot load synapse_engine: {e}")
+
+def cmd_serve(args):
+    """Démarre le serveur API type Ollama."""
+    port = args.port or load_config().get("server_port", 11435)
+    
+    log(f"Starting SYNAPSE server on port {port}")
+    
+    # Create simple API server
+    server_code = f'''
+import json
+import time
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from synapse_engine import SynapseModel, SynapseConfig, create_model
+
+# Global model instance
+model = None
+
+class SynapseHandler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        if self.path == "/api/generate":
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_length)
+            data = json.loads(body)
+            
+            global model
+            if model is None:
+                config = SynapseConfig(d_model=128, state_size=32, num_heads=4, num_layers=2)
+                model = create_model(config)
+            
+            prompt = data.get("prompt", "")
+            options = data.get("options", {{}})
+            
+            result = model.generate(
+                prompt,
+                max_tokens=options.get("num_predict", 100),
+                temperature=options.get("temperature", 0.7),
+                top_p=options.get("top_p", 0.9)
+            )
+            
+            response = {{
+                "model": "synapse-local",
+                "response": result,
+                "done": True,
+                "context": {{}},
+                "total_duration": int(time.time() * 1e9),
+                "load_duration": 1000000000,
+                "prompt_eval_count": len(prompt),
+                "eval_count": len(result)
+            }}
+            
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(response).encode())
+            
+        elif self.path == "/api/chat":
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_length)
+            data = json.loads(body)
+            
+            global model
+            if model is None:
+                config = SynapseConfig(d_model=128, state_size=32, num_heads=4, num_layers=2)
+                model = create_model(config)
+            
+            messages = data.get("messages", [])
+            prompt = "\\n".join([f"{{m['role']}}: {{m['content']}}" for m in messages])
+            
+            result = model.generate(
+                prompt,
+                max_tokens=options.get("num_predict", 100),
+                temperature=options.get("temperature", 0.7)
+            )
+            
+            response = {{
+                "model": "synapse-local",
+                "message": {{"role": "assistant", "content": result}},
+                "done": True
+            }}
+            
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(response).encode())
+    
+    def do_GET(self):
+        if self.path == "/":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({{
+                "model": "synapse-local",
+                "models": ["synapse-small", "synapse-base", "synapse-plus"]
+            }}).encode())
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+print(f"SYNAPSE server running on http://localhost:{port}")
+server = HTTPServer(("0.0.0.0", {port}), SynapseHandler)
+server.serve_forever()
+'''
+    
+    # Write and run server
+    server_file = os.path.join(SYNAPSE_HOME, "server.py")
+    with open(server_file, 'w') as f:
+        f.write(server_code)
+    
+    # Run server
+    subprocess.run([sys.executable, server_file])
+
+def cmd_pull(args):
+    """Télécharge un modèle (simulation pour l'instant)."""
+    model_name = args.model
+    log(f"Pulling {model_name}...")
+    
+    # Simulation de download
+    time.sleep(1)
+    
+    config = load_config()
+    config["models"][model_name] = {
+        "downloaded": True,
+        "size": "~200MB",
+        "params": "125M",
+        "downloaded_at": time.time()
+    }
+    save_config(config)
+    
+    print(f"{Colors.GREEN}✓{Colors.ENDC} {model_name} pulled successfully")
+
+def cmd_ollama(args):
+    """Transfère les requêtes vers Ollama si disponible."""
+    ollama_url = load_config().get("ollama_url", "http://localhost:11434")
+    
+    try:
+        # Check if Ollama is running
+        resp = requests.get(f"{ollama_url}/api/tags", timeout=2)
+        if resp.status_code == 200:
+            log(f"Ollama is running at {ollama_url}")
+            models = resp.json().get("models", [])
+            print(f"\n{Colors.BOLD}Ollama Models:{Colors.ENDC}")
+            for m in models:
+                print(f"  - {m.get('name', 'unknown')}")
+            return
+    except:
+        pass
+    
+    # Fallback to SYNAPSE
+    log("Ollama not available, using SYNAPSE")
+    cmd_run(argparse.Namespace(
+        model=args.model or "synapse-small",
+        nums=100,
+        temperature=0.7
+    ))
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="SYNAPSE - Revolutionary LLM Engine (O(n) linear)",
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    
+    subparsers = parser.add_subparsers(dest="command", help="Commands")
+    
+    # synapse run
+    run_parser = subparsers.add_parser("run", help="Run a model interactively")
+    run_parser.add_argument("model", nargs="?", help="Model name")
+    run_parser.add_argument("-n", "--nums", type=int, default=100, help="Max tokens to generate")
+    run_parser.add_argument("-t", "--temperature", type=float, default=0.7, help="Sampling temperature")
+    
+    # synapse serve
+    serve_parser = subparsers.add_parser("serve", help="Start API server")
+    serve_parser.add_argument("-p", "--port", type=int, help="Server port")
+    
+    # synapse list
+    subparsers.add_parser("list", help="List available models")
+    
+    # synapse pull
+    pull_parser = subparsers.add_parser("pull", help="Download a model")
+    pull_parser.add_argument("model", help="Model name")
+    
+    # synapse ollama
+    ollama_parser = subparsers.add_parser("ollama", help="Use Ollama backend")
+    ollama_parser.add_argument("model", nargs="?", help="Model name")
+    
+    # Default command
+    args = parser.parse_args()
+    
+    if args.command is None:
+        # Show help + list models
+        parser.print_help()
+        print("\n")
+        cmd_list(argparse.Namespace())
+        return
+    
+    ensure_dirs()
+    
+    # Dispatch
+    if args.command == "list":
+        cmd_list(args)
+    elif args.command == "run":
+        cmd_run(args)
+    elif args.command == "serve":
+        cmd_serve(args)
+    elif args.command == "pull":
+        cmd_pull(args)
+    elif args.command == "ollama":
+        cmd_ollama(args)
+    else:
+        parser.print_help()
+
+if __name__ == "__main__":
+    main()

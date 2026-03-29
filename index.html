@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOE — Orret · Brand Bible & Technical Roadmap</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root {
+ --void: #05060f;
+ --deep: #080b18;
+ --layer: rgba(12,16,32,0.6);
+ --glass: rgba(255,255,255,0.04);
+ --glass-border: rgba(255,255,255,0.08);
+ --glass-border-bright: rgba(255,255,255,0.16);
+ --ice: #b8d4ff;
+ --ice2: #dce8ff;
+ --aurora-blue: #4d9fff;
+ --aurora-violet: #a78bfa;
+ --aurora-green: #34d399;
+ --aurora-rose: #f472b6;
+ --hot: #6ee7f7;
+ --text: #c4cfe8;
+ --text-dim: #4a5578;
+ --text-bright: #eef2ff;
+ --mono: 'DM Mono', monospace;
+ --sans: 'Syne', sans-serif;
+ --serif: 'Instrument Serif', serif;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+ html { scroll-behavior: smooth; }
+
+body {
+background: var(--void);
+color: var(--text);
+font-family: var(--sans);
+overflow-x: hidden;
+line-height: 1.7;
+}
+
+/* ── AURORA BACKGROUND ── */
+.aurora-bg {
+position: fixed;
+inset: 0;
+pointer-events: none;
+z-index: 0;
+overflow: hidden;
+}
+.aurora-orb {
+position: absolute;
+border-radius: 50%;
+filter: blur(120px);
+opacity: 0.18;
+}
+.orb-1 { width: 800px; height: 600px; background: var(--aurora-blue); top: -200px; left: -200px; animation: float1 20s ease-in-out infinite; }
+.orb-2 { width: 600px; height: 600px; background: var(--aurora-violet); top: 20%; right: -150px; animation: float2 25s ease-in-out infinite; }
+.orb-3 { width: 500px; height: 400px; background: var(--aurora-green); bottom: 10%; left: 20%; animation: float3 18s ease-in-out infinite; }
+.orb-4 { width: 400px; height: 300px; background: var(--aurora-rose); bottom: -100px; right: 30%; animation: float1 22s ease-in-out infinite reverse; opacity: 0.12; }
+
+@keyframes float1 { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(60px,40px) scale(1.05)} 66%{transform:translate(-40px,60px) scale(0.95)} }
+@keyframes float2 { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(-50px,-30px) scale(1.08)} 66%{transform:translate(30px,-60px) scale(0.92)} }
+@keyframes float3 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(40px,-40px) scale(1.1)} }
+
+/* ── NOISE ── */
+body::after {
+content: '';
+position: fixed;
+inset: 0;
+background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+pointer-events: none;
+z-index: 9998;
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--aurora-violet); border-radius: 2px; opacity: 0.5; }
+
+/* ── NAV ── */
+nav {
+position: fixed;
+top: 0; left: 0; right: 0;
+z-index: 100;
+display: flex;
+align-items: center;
+justify-content: space-between;
+padding: 1.2rem 3rem;
+background: rgba(5,6,15,0.7);
+backdrop-filter: blur(24px);
+border-bottom: 1px solid var(--glass-border);
+}
+.nav-logo {
+font-family: var(--sans);
+font-size: 1.1rem;
+font-weight: 800;
+letter-spacing: 0.12em;
+color: var(--text-bright);
+display: flex;
+align-items: center;
+gap: 0.6rem;
+}
+.nav-logo-dot {
+width: 6px; height: 6px;
+background: var(--aurora-green);
+border-radius: 50%;
+animation: blink 2.4s ease-in-out infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+.nav-links {
+display: flex;
+gap: 2rem;
+list-style: none;
+}
+.nav-links a {
+font-family: var(--mono);
+font-size: 0.7rem;
+letter-spacing: 0.15em;
+color: var(--text-dim);
+text-decoration: none;
+text-transform: uppercase;
+transition: color 0.2s;
+}
+.nav-links a:hover { color: var(--ice); }
+
+/* ── GLASS PANEL ── */
+.glass {
+background: var(--glass);
+border: 1px solid var(--glass-border);
+backdrop-filter: blur(20px);
+border-radius: 16px;
+}
+.glass-bright {
+background: rgba(255,255,255,0.05);
+border: 1px solid var(--glass-border-bright);
+backdrop-filter: blur(30px);
+border-radius: 16px;
+}
+.glass-hot {
+background: rgba(78,159,255,0.06);
+border: 1px solid rgba(78,159,255,0.2);
+backdrop-filter: blur(20px);
+border-radius: 16px;
+}
+
+/* ── HERO ── */
+.hero {
+position: relative;
+z-index: 1;
+min-height: 100vh;
+display: flex;
+flex-direction: column;
+justify-content: center;
+align-items: center;
+text-align: center;
+padding: 8rem 2rem 6rem;
+}
+.hero-tag {
+font-family: var(--mono);
+font-size: 0.65rem;
+letter-spacing: 0.35em;
+color: var(--aurora-blue);
+text-transform: uppercase;
+margin-bottom: 2.5rem;
+opacity: 0;
+animation: rise 1s ease 0.3s forwards;
+}
+.hero-eyebrow {
+font-family: var(--mono);
+font-size: 0.75rem;
+letter-spacing: 0.2em;
+color: var(--text-dim);
+text-transform: uppercase;
+margin-bottom: 1rem;
+opacity: 0;
+animation: rise 1s ease 0.5s forwards;
+}
+.hero-title {
+font-family: var(--sans);
+font-size: clamp(5rem, 16vw, 11rem);
+font-weight: 800;
+letter-spacing: -0.02em;
+line-height: 0.88;
+color: var(--text-bright);
+opacity: 0;
+animation: rise 1.2s ease 0.7s forwards;
+position: relative;
+}
+.hero-title-model {
+display: block;
+font-family: var(--serif);
+font-style: italic;
+font-size: clamp(1.6rem, 4vw, 2.8rem);
+font-weight: 400;
+letter-spacing: 0.05em;
+color: var(--aurora-violet);
+margin-top: 0.5rem;
+opacity: 0;
+animation: rise 1s ease 1s forwards;
+}
+.hero-desc {
+max-width: 600px;
+font-size: 1rem;
+color: var(--text-dim);
+line-height: 1.9;
+margin-top: 2.5rem;
+font-weight: 400;
+opacity: 0;
+animation: rise 1s ease 1.2s forwards;
+}
+.hero-desc strong { color: var(--ice); font-weight: 600; }
+
+.hero-stats {
+display: flex;
+gap: 1px;
+margin-top: 4rem;
+opacity: 0;
+animation: rise 1s ease 1.5s forwards;
+overflow: hidden;
+border-radius: 12px;
+border: 1px solid var(--glass-border);
+backdrop-filter: blur(20px);
+}
+.hero-stat {
+padding: 1.2rem 2.2rem;
+background: var(--glass);
+border-right: 1px solid var(--glass-border);
+text-align: center;
+flex: 1;
+}
+.hero-stat:last-child { border-right: none; }
+.hero-stat-val {
+display: block;
+font-family: var(--sans);
+font-size: 1.4rem;
+font-weight: 700;
+color: var(--text-bright);
+letter-spacing: -0.02em;
+}
+.hero-stat-lbl {
+font-family: var(--mono);
+font-size: 0.6rem;
+letter-spacing: 0.18em;
+color: var(--text-dim);
+text-transform: uppercase;
+margin-top: 0.2rem;
+}
+
+@keyframes rise { from{opacity:0;transform:translateY(28px)} to{opacity:1;transform:translateY(0)} }
+
+/* ── LAYOUT ── */
+.page {
+position: relative;
+z-index: 1;
+max-width: 1080px;
+margin: 0 auto;
+padding: 0 2rem;
+}
+
+.section {
+padding: 6rem 0;
+}
+
+.section-label {
+font-family: var(--mono);
+font-size: 0.62rem;
+letter-spacing: 0.3em;
+color: var(--aurora-blue);
+text-transform: uppercase;
+margin-bottom: 1.2rem;
+opacity: 0.7;
+display: flex;
+align-items: center;
+gap: 0.6rem;
+}
+.section-label::before { content: '//'; opacity: 0.4; }
+
+h2 {
+font-family: var(--sans);
+font-size: clamp(2rem, 4vw, 3rem);
+font-weight: 700;
+letter-spacing: -0.02em;
+color: var(--text-bright);
+line-height: 1.1;
+margin-bottom: 1rem;
+}
+h2 em { font-family: var(--serif); font-style: italic; font-weight: 400; color: var(--aurora-violet); }
+h2 span { color: var(--aurora-blue); }
+
+h3 {
+font-family: var(--sans);
+font-size: 1.1rem;
+font-weight: 600;
+color: var(--text-bright);
+margin-bottom: 0.5rem;
+letter-spacing: -0.01em;
+}
+
+p { color: var(--text); font-weight: 400; font-size: 0.95rem; line-height: 1.8; margin-bottom: 0.8rem; }
+
+/* ── DNA SECTION ── */
+.dna-grid {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 1.5rem;
+margin-top: 3rem;
+}
+.dna-panel {
+padding: 2rem;
+position: relative;
+overflow: hidden;
+}
+.dna-panel::before {
+content: '';
+position: absolute;
+top: 0; left: 0;
+width: 100%; height: 3px;
+background: linear-gradient(90deg, var(--aurora-blue), var(--aurora-violet));
+border-radius: 16px 16px 0 0;
+}
+.dna-label {
+font-family: var(--mono);
+font-size: 0.62rem;
+letter-spacing: 0.2em;
+color: var(--aurora-blue);
+text-transform: uppercase;
+margin-bottom: 1rem;
+opacity: 0.7;
+}
+.color-row {
+display: flex;
+gap: 0.5rem;
+margin: 1rem 0;
+}
+.swatch {width: 44px; height: 44px;
+border-radius: 10px;
+border: 1px solid rgba(255,255,255,0.1);
+display: flex;
+align-items: center;
+justify-content: center;
+cursor: default;
+}
+.font-sample {
+padding: 1rem;
+background: rgba(0,0,0,0.3);
+border-radius: 8px;
+margin: 0.5rem 0;
+}
+.font-sample .name { font-family: var(--mono); font-size: 0.6rem; color: var(--text-dim); margin-bottom: 0.4rem; }
+.fs-syne { font-family: var(--sans); font-size: 1.3rem; font-weight: 700; color: var(--text-bright); }
+.fs-instrument { font-family: var(--serif); font-style: italic; font-size: 1.3rem; color: var(--aurora-violet); }
+.fs-mono { font-family: var(--mono); font-size: 0.85rem; color: var(--aurora-green); }
+
+/* ── CARDS ── */
+.card-grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px,1fr)); gap: 1.5rem; margin-top: 2.5rem; }
+.card-grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px,1fr)); gap: 1.2rem; margin-top: 2.5rem; }
+
+.card {
+padding: 2rem;
+position: relative;
+overflow: hidden;
+transition: border-color 0.3s, transform 0.2s;
+}
+.card:hover { border-color: var(--glass-border-bright); transform: translateY(-3px); }
+
+.card-icon { font-size: 1.8rem; margin-bottom: 1rem; display: block; }
+
+.tag {
+display: inline-block;
+font-family: var(--mono);
+font-size: 0.6rem;
+letter-spacing: 0.1em;
+padding: 0.2rem 0.7rem;
+border-radius: 20px;
+margin: 0.2rem;
+}
+.tag-blue { background: rgba(77,159,255,0.12); color: var(--aurora-blue); border: 1px solid rgba(77,159,255,0.25); }
+.tag-violet { background: rgba(167,139,250,0.1); color: var(--aurora-violet); border: 1px solid rgba(167,139,250,0.25); }
+.tag-green { background: rgba(52,211,153,0.1); color: var(--aurora-green); border: 1px solid rgba(52,211,153,0.25); }
+.tag-rose { background: rgba(244,114,182,0.1); color: var(--aurora-rose); border: 1px solid rgba(244,114,182,0.25); }
+
+/* ── CODE BLOCK ── */
+.code {
+background: rgba(0,0,0,0.5);
+border: 1px solid var(--glass-border);
+border-left: 2px solid var(--aurora-blue);
+border-radius: 10px;
+padding: 1.5rem;
+font-family: var(--mono);
+font-size: 0.78rem;
+line-height: 1.9;
+overflow-x: auto;
+white-space: pre;
+color: var(--text);
+margin: 1.2rem 0;
+}
+.kw { color: var(--aurora-violet); }
+.fn { color: var(--aurora-blue); }
+.st { color: var(--aurora-green); }
+.cm { color: var(--text-dim); }
+.nu { color: var(--aurora-rose); }
+
+/* ── MANIFESTO ── */
+.manifesto {
+position: relative;
+z-index: 1;
+padding: 5rem 2rem;
+text-align: center;
+border-top: 1px solid var(--glass-border);
+border-bottom: 1px solid var(--glass-border);
+margin: 2rem 0;
+background: rgba(0,0,0,0.3);
+backdrop-filter: blur(40px);
+}
+.manifesto-text {
+font-family: var(--serif);
+font-size: clamp(1.3rem, 2.8vw, 2rem);
+font-style: italic;
+color: var(--text-bright);
+max-width: 800px;
+margin: 0 auto;
+line-height: 1.8;
+}
+.manifesto-text span { color: var(--aurora-violet); font-style: normal; }
+.manifesto-text em { color: var(--aurora-blue); }
+
+/* ── FOOTER ── */
+footer {
+position: relative; z-index: 1;
+text-align: center;
+padding: 4rem 2rem;
+border-top: 1px solid var(--glass-border);
+}
+.footer-logo {
+font-family: var(--sans);
+font-size: 2rem;
+font-weight: 800;
+color: var(--text-bright);
+letter-spacing: 0.1em;
+margin-bottom: 0.5rem;
+}
+.footer-sub {
+font-family: var(--serif);
+font-style: italic;
+font-size: 1rem;
+color: var(--aurora-violet);
+margin-bottom: 2rem;
+}
+.footer-meta {
+font-family: var(--mono);
+font-size: 0.62rem;
+letter-spacing: 0.2em;
+color: var(--text-dim);
+text-transform: uppercase;
+}
+.footer-meta span { color: var(--aurora-green); }
+
+/* ── GLASSMORPHISM STACK ── */
+.glass-stack {
+display: grid;
+grid-template-columns: 1fr 1fr 1fr;
+gap: 1rem;
+margin: 2rem 0;
+}
+.gs-item {
+padding: 1.5rem;
+border-radius: 14px;
+text-align: center;
+background: var(--glass);
+border: 1px solid var(--glass-border);
+backdrop-filter: blur(16px);
+}
+.gs-icon { font-size: 1.4rem; margin-bottom: 0.5rem; display: block; }
+.gs-name { font-family: var(--mono); font-size: 0.68rem; color: var(--aurora-blue); text-transform: uppercase; letter-spacing: 0.1em; }
+.gs-val { font-family: var(--sans); font-size: 1rem; font-weight: 700; color: var(--text-bright); margin-top: 0.2rem; }
+
+@media(max-width:700px){
+nav { padding: 1rem 1.5rem; }
+.nav-links { display: none; }
+.dna-grid { grid-template-columns: 1fr; }
+.glass-stack { grid-template-columns: 1fr 1fr; }
+}
+</style>
+
+</head>
+<body>
+
+<div class="aurora-bg">
+ <div class="aurora-orb orb-1"></div>
+ <div class="aurora-orb orb-2"></div>
+ <div class="aurora-orb orb-3"></div>
+ <div class="aurora-orb orb-4"></div>
+</div>
+
+<nav>
+ <div class="nav-logo">
+ <div class="nav-logo-dot"></div>
+ SOE
+ </div>
+ <ul class="nav-links">
+ <li><a href="#brand">ADN</a></li>
+ <li><a href="#loop">FORMAT</a></li>
+ <li><a href="#ruche">RUCHE</a></li>
+ <li><a href="#orret">ORRET</a></li>
+ <li><a href="#roadmap">ROADMAP</a></li>
+ </ul>
+</nav>
+
+<!-- HERO -->
+
+<div class="hero">
+ <div class="hero-tag">Brand Bible · Technical Roadmap · 2026</div>
+ <div class="hero-eyebrow">Système Orret · Premier Modèle</div>
+ <h1 class="hero-title">
+ SOE
+ <span class="hero-title-model">— système Orret, v0.1</span>
+ </h1>
+ <p class="hero-desc">
+ Un écosystème d'intelligence artificielle construit <strong>from scratch</strong>,
+ avec un format de données propriétaire <strong>.loop</strong>, un pipeline de collecte
+ <strong>Ruche</strong>, et un premier modèle entraîné sur Google Colab.
+ Conçu à 14 ans. Open source. Pour toujours.
+ </p>
+ <div class="hero-stats">
+ <div class="hero-stat">
+ <span class="hero-stat-val">Orret</span>
+ <span class="hero-stat-lbl">1er Modèle</span>
+ </div>
+ <div class="hero-stat">
+ <span class="hero-stat-val">.loop</span>
+ <span class="hero-stat-lbl">Format natif</span>
+ </div>
+ <div class="hero-stat">
+ <span class="hero-stat-val">Ruche</span>
+ <span class="hero-stat-lbl">Pipeline données</span>
+ </div>
+ <div class="hero-stat">
+ <span class="hero-stat-val">X250</span>
+ <span class="hero-stat-lbl">Compatible SNP1</span>
+ </div>
+ <div class="hero-stat">
+ <span class="hero-stat-val">100%</span>
+ <span class="hero-stat-lbl">Open Source</span>
+ </div>
+ </div>
+</div>
+
+<!-- MANIFESTO -->
+
+<div class="manifesto">
+ <p class="manifesto-text">
+ Les modèles d'IA ne t'appartiennent pas. Ils sont <span>derrière des murs</span>,
+ dans des datacenters que tu ne contrôles pas. <em>SOE</em> est la réponse —
+ un système qui t'appartient, entraîné avec tes données,
+ qui tourne sur ta machine.
+ <span>L'intelligence artificielle doit être libre.</span>
+ </p>
+</div>
+
+<!-- FOOTER -->
+<footer>
+ <div class="footer-logo">SOE</div>
+ <div class="footer-sub">système Orret, premier modèle</div>
+ <div class="footer-meta">
+ Brand Bible v1.0 · Mars 2026 · 
+ <span>Conçu par Lévy</span> · 
+ Open Source · Local-First · Zero Cloud
+ </div>
+</footer>
+
+</body>
+</html>

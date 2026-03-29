@@ -1,0 +1,16 @@
+# SOE - Requirements
+# Moteur d'inférence révolutionnnaire O(n) linéaire
+
+# Core
+numpy>=1.21.0
+
+# Optional - pour embeddings
+# sentence-transformers>=2.2.0  # Plus tard
+
+# Server
+# fastapi>=0.100.0
+# uvicorn>=0.23.0
+
+# Memory (optionnel)
+# faiss-cpu>=1.7.0
+# networkx>=3.0

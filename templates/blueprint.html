@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARIA + SOMA Blueprint — Orret</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@300;400;500&family=Plus+Jakarta+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+:root{--void:#03050a;--deep:#060d18;--bio:#00e5a0;--bio-dim:rgba(0,229,160,0.15);--neon:#00c8ff;--neon-dim:rgba(0,200,255,0.12);--synapse:#7b2dff;--synapse-dim:rgba(123,45,255,0.15);--accent:#ff6b35;--warning:#ffd740;--text:#c8dde8;--text-dim:#4a6275;--text-bright:#e8f4fa;--glass:rgba(10,22,40,0.6);--border:rgba(0,200,255,0.12);--font-display:'Syne',sans-serif;--font-body:'Plus Jakarta Sans',sans-serif;--font-mono:'DM Mono',monospace}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-body);background:var(--void);color:var(--text);min-height:100vh;overflow-x:hidden;line-height:1.6}
+body::before{content:'';position:fixed;inset:0;z-index:0;background:radial-gradient(ellipse 70% 50% at 20% 10%,rgba(0,200,255,0.07) 0%,transparent 60%),radial-gradient(ellipse 50% 40% at 80% 80%,rgba(123,45,255,0.07) 0%,transparent 60%);pointer-events:none}
+body::after{content:'';position:fixed;inset:0;z-index:0;background-image:url("data:image/svg+xml,%3Csvg width='80' height='80' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");pointer-events:none}
+.glass{background:var(--glass);backdrop-filter:blur(24px) saturate(1.5);-webkit-backdrop-filter:blur(24px) saturate(1.5);border:1px solid var(--border);border-radius:20px}
+#app{position:relative;z-index:1;padding:20px;max-width:1200px;margin:0 auto}
+/* HERO */
+.hero{min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:60px 20px;position:relative}
+.hero-glow{position:absolute;width:500px;height:500px;background:radial-gradient(ellipse,rgba(0,229,160,0.06) 0%,transparent 70%);top:50%;left:50%;transform:translate(-50%,-50%);animation:pulse 5s ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.2)}}
+.hero-badge{font-family:var(--font-mono);font-size:0.65rem;letter-spacing:0.3em;color:var(--bio);border:1px solid rgba(0,229,160,0.3);padding:5px 16px;background:rgba(0,229,160,0.05);margin-bottom:24px}
+.hero h1{font-family:var(--font-display);font-size:clamp(3rem,8vw,7rem);font-weight:900;background:linear-gradient(135deg,var(--bio),var(--neon),var(--synapse));-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1;margin-bottom:12px;animation:shimmer 4s linear infinite;background-size:200% auto}
+@keyframes shimmer{0%{background-position:0% center}100%{background-position:200% center}}
+.hero-sub{font-family:var(--font-display);font-size:1rem;color:var(--text-dim);letter-spacing:0.2em;margin-bottom:32px}
+.hero-desc{max-width:700px;font-size:1rem;color:var(--text);line-height:1.8;margin-bottom:40px}
+/* STATS */
+.stats{display:flex;gap:16px;flex-wrap:wrap;justify-content:center}
+.stat{text-align:center;border:1px solid var(--border);padding:16px 24px;background:rgba(0,229,160,0.03);min-width:100px;border-radius:12px}
+.stat-val{font-family:var(--font-display);font-size:24px;font-weight:800;color:var(--bio);display:block}
+.stat-label{font-family:var(--font-mono);font-size:9px;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-dim);margin-top:4px}
+/* SECTIONS */
+section{max-width:1100px;margin:60px auto;padding:0 20px}
+.section-tag{font-family:var(--font-mono);font-size:0.65rem;letter-spacing:0.3em;color:var(--bio);text-transform:uppercase;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.section-tag::before{content:'//';opacity:0.5}
+h2{font-family:var(--font-display);font-size:clamp(1.5rem,3vw,2.5rem);font-weight:800;color:var(--text-bright);margin-bottom:16px;line-height:1.2}
+h2 em{color:var(--bio);font-style:italic}
+p{max-width:700px;color:var(--text);margin-bottom:16px;font-weight:300}
+/* CARDS GRID */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-top:24px}
+.card{background:var(--glass);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid var(--border);border-radius:16px;padding:20px;transition:all 0.3s}
+.card:hover{border-color:rgba(0,200,255,0.25);transform:translateY(-2px)}
+.card-icon{font-size:28px;margin-bottom:10px}
+.card-title{font-family:var(--font-display);font-size:13px;font-weight:700;color:var(--text-bright);margin-bottom:8px;letter-spacing:0.05em}
+.card-body{font-size:12px;color:var(--text-dim);line-height:1.7}
+.tag{display:inline-block;font-family:var(--font-mono);font-size:9px;letter-spacing:0.08em;padding:3px 8px;border-radius:4px;margin:3px 2px 0 0}
+.tag-b{background:rgba(0,200,255,0.1);color:var(--neon);border:1px solid rgba(0,200,255,0.2)}
+.tag-g{background:var(--bio-dim);color:var(--bio);border:1px solid rgba(0,229,160,0.2)}
+.tag-p{background:var(--synapse-dim);color:var(--synapse);border:1px solid rgba(123,45,255,0.2)}
+.tag-o{background:rgba(255,107,53,0.1);color:var(--accent);border:1px solid rgba(255,107,53,0.2)}
+.tag-y{background:rgba(255,215,64,0.1);color:var(--warning);border:1px solid rgba(255,215,64,0.2)}
+/* CODE BLOCK */
+.code-block{background:#010c12;border:1px solid var(--border);border-left:3px solid var(--bio);border-radius:8px;padding:16px;margin:16px 0;font-family:var(--font-mono);font-size:11px;line-height:1.9;overflow-x:auto;white-space:pre;color:#a8d8ff}
+.kw{color:#4fc3f7}.fn{color:var(--bio)}.str{color:#f9a825}.cm{color:var(--text-dim)}.num{color:var(--accent)}
+/* COMPARISON TABLE */
+table{width:100%;border-collapse:collapse;margin-top:20px;font-size:12px}
+th{padding:10px 14px;text-align:left;font-family:var(--font-mono);font-size:10px;letter-spacing:0.15em;color:var(--bio);text-transform:uppercase;border-bottom:1px solid rgba(0,229,160,0.2);background:rgba(0,229,160,0.03)}
+td{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.04);color:var(--text)}
+tr:hover td{background:rgba(0,229,160,0.02)}
+.good{color:var(--bio)}.bad{color:#ff6b6b}.mid{color:var(--warning)}
+/* ARCHITECTURE */
+.arch-box{background:var(--glass);backdrop-filter:blur(24px);border:1px solid var(--border);border-radius:16px;padding:24px;margin-top:20px}
+.arch-row{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.arch-label{font-family:var(--font-mono);font-size:9px;letter-spacing:0.12em;color:var(--text-dim);width:80px;text-transform:uppercase;text-align:right;flex-shrink:0}
+.arch-nodes{display:flex;gap:5px;flex-wrap:wrap}
+.arch-node{padding:4px 10px;border-radius:6px;font-family:var(--font-mono);font-size:10px;border:1px solid;transition:all 0.2s}
+.arch-node.blue{border-color:rgba(0,200,255,0.4);color:var(--neon);background:var(--neon-dim)}
+.arch-node.green{border-color:rgba(0,229,160,0.4);color:var(--bio);background:var(--bio-dim)}
+.arch-node.purple{border-color:rgba(123,45,255,0.4);color:var(--synapse);background:var(--synapse-dim)}
+.arch-node.orange{border-color:rgba(255,107,53,0.4);color:var(--accent);background:rgba(255,107,53,0.1)}
+.arch-arrow{text-align:center;font-size:11px;color:var(--text-dim);opacity:0.4;padding:2px 0}
+/* HIGHLIGHT */
+.highlight{background:linear-gradient(135deg,rgba(0,229,160,0.05),rgba(123,45,255,0.05));border:1px solid rgba(0,229,160,0.2);padding:20px;border-radius:12px;margin:20px 0}
+.highlight strong{color:var(--bio)}
+/* TIMELINE */
+.timeline{position:relative;padding-left:24px;margin-top:24px}
+.timeline::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;background:linear-gradient(180deg,var(--bio),var(--synapse),transparent)}
+.tl-item{position:relative;padding-bottom:28px}
+.tl-item::before{content:'';position:absolute;left:-28px;top:4px;width:8px;height:8px;border-radius:2px;background:var(--bio);transform:rotate(45deg)}
+.tl-phase{font-family:var(--font-mono);font-size:9px;letter-spacing:0.2em;color:var(--bio);text-transform:uppercase;margin-bottom:4px}
+.tl-title{font-family:var(--font-display);font-size:14px;font-weight:700;color:var(--text-bright);margin-bottom:6px}
+.tl-desc{font-size:12px;color:var(--text-dim);line-height:1.7}
+/* PYRAMID */
+.pyramid{display:flex;flex-direction:column;align-items:center;gap:3px;margin-top:20px}
+.pyr-row{display:flex;align-items:center;justify-content:center;height:44px;clip-path:polygon(5% 0%,95% 0%,100% 100%,0% 100%);font-family:var(--font-mono);font-size:9px;letter-spacing:0.08em;transition:filter 0.2s;cursor:default}
+.pyr-row:hover{filter:brightness(1.3)}
+/* LOOP FORMAT */
+.loop-diagram{display:flex;flex-direction:column;gap:2px;margin-top:16px}
+.loop-section{display:flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:10px;padding:8px 12px;border-radius:6px}
+.loop-header-sec{background:rgba(0,200,255,0.1);border:1px solid rgba(0,200,255,0.3);color:var(--neon)}
+.loop-index-sec{background:rgba(0,229,160,0.1);border:1px solid rgba(0,229,160,0.3);color:var(--bio)}
+.loop-batch-sec{background:rgba(123,45,255,0.1);border:1px solid rgba(123,45,255,0.3);color:var(--synapse)}
+.loop-footer-sec{background:rgba(255,107,53,0.1);border:1px solid rgba(255,107,53,0.3);color:var(--accent)}
+.loop-size{flex:1;text-align:right;color:var(--text-dim)}
+/* FOOTER */
+footer{border-top:1px solid var(--border);padding:32px 20px;text-align:center;margin-top:60px}
+footer div{font-family:var(--font-display);font-size:14px;color:var(--text-dim)}
+footer span{color:var(--bio)}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:2px}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.fade-in{animation:fadeUp 0.6s ease both}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- HERO -->
+<div class="hero fade-in">
+<div class="hero-glow"></div>
+<div class="hero-badge">DOCUMENT DE RECHERCHE CLASSIFIÉ · ORRET EDITION</div>
+<h1>ARIA + SOMA</h1>
+<div class="hero-sub">Super Intelligence Blueprint · X250 ThinkPad Compatible</div>
+<p class="hero-desc">
+ Blueprint complet pour créer une super-intelligence locale — cerveau artificiel bio-inspiré, mémoire hiérarchique à activation intelligente, fonctionnant sur matériel modeste.
+</p>
+<div class="stats">
+<div class="stat"><span class="stat-val">7</span><span class="stat-label">Problèmes résolus</span></div>
+<div class="stat"><span class="stat-val">5</span><span class="stat-label">Couches mémoire</span></div>
+<div class="stat"><span class="stat-val">~3GB</span><span class="stat-label">RAM requise</span></div>
+<div class="stat"><span class="stat-val">100%</span><span class="stat-label">Open Source</span></div>
+<div class="stat"><span class="stat-val">X250</span><span class="stat-label">Compatible SNP1</span></div>
+</div>
+</div>
+
+<!-- 7 FAILLES -->
+<section class="fade-in">
+<div class="section-tag">01 · Diagnostic</div>
+<h2>Les <em>7 failles</em> de l'IA actuelle</h2>
+<div class="grid">
+<div class="card"><div class="card-icon">⚡</div><div class="card-title">Faille 1 — Complexité O(n²)</div><div class="card-body">L'attention des Transformers est quadratique. Le cerveau humain traite des années de mémoire avec 20 watts.</div><span class="tag tag-o">Transformers</span></div>
+<div class="card"><div class="card-icon">🧠</div><div class="card-title">Faille 2 — Mémoire Zéro</div><div class="card-body">Chaque conversation repart de zéro. Pas de vraie mémoire persistante. Les RAG c'est du bricolage.</div><span class="tag tag-y">Stateless</span></div>
+<div class="card"><div class="card-icon">🎲</div><div class="card-title">Faille 3 — Hallucinations</div><div class="card-body">Les LLMs inventent parce qu'ils n'ont pas de modèle du monde causal. Juste de la complétion de séquence.</div><span class="tag tag-o">No grounding</span></div>
+<div class="card"><div class="card-icon">💾</div><div class="card-title">Faille 4 — Poids Monolithiques</div><div class="card-body">Tous les neurones s'activent pour chaque token. Le cerveau : seulement 1-5% actif (sparse activation).</div><span class="tag tag-p">Dense activation</span></div>
+<div class="card"><div class="card-icon">🔄</div><div class="card-title">Faille 5 — Apprentissage Gelé</div><div class="card-body">Après entraînement le modèle ne peut plus apprendre. Fine-tuning = ré-entraînement coûteux.</div><span class="tag tag-y">No continual learning</span></div>
+<div class="card"><div class="card-icon">🌐</div><div class="card-title">Faille 6 — Pas de Modèle Causal</div><div class="card-body">L'IA ne comprend pas les causes et effets. Elle corrèle, pas causalité.</div><span class="tag tag-b">Correlation ≠ causation</span></div>
+<div class="card"><div class="card-icon">🖥️</div><div class="card-title">Faille 7 — Prérequis Matériel</div><div class="card-body">GPT-4 nécessite des milliers de GPU A100. Sur ton X250, rien de sérieux sans ruse d'architecture.</div><span class="tag tag-o">$$$$ infrastructure</span></div>
+</div>
+</section>
+
+<!-- ARIA ARCHITECTURE -->
+<section class="fade-in">
+<div class="section-tag">02 · Architecture ARIA</div>
+<h2>Architecture ARIA <em>complète</em></h2>
+<p>ARIA synthétise toutes les innovations en une architecture déployable sur matériel modeste.</p>
+<div class="arch-box">
+<div style="font-family:var(--font-mono);font-size:9px;letter-spacing:0.2em;color:var(--bio);margin-bottom:16px;text-align:center">◆ ARIA STACK — FLUX DE TRAITEMENT</div>
+<div class="arch-row"><div class="arch-label">INPUT</div><div class="arch-nodes"><div class="arch-node blue">User / Tools</div><div class="arch-node blue">Environment</div><div class="arch-node blue">Sensors</div></div></div>
+<div class="arch-arrow">↓</div>
+<div class="arch-row"><div class="arch-label">PERCEPTION</div><div class="arch-nodes"><div class="arch-node blue">Tokenizer + Embeddings</div><div class="arch-node blue">Importance Scorer</div><div class="arch-node blue">Intent Classifier</div></div></div>
+<div class="arch-arrow">↓</div>
+<div class="arch-row"><div class="arch-label">MEMORY IAC</div><div class="arch-nodes"><div class="arch-node green">L0 Sensory 32tok</div><div class="arch-node green">L1 Working 2K</div><div class="arch-node green">L2 Episodic</div><div class="arch-node green">L3 Semantic</div><div class="arch-node green">L4 Procedural</div></div></div>
+<div class="arch-arrow">↓</div>
+<div class="arch-row"><div class="arch-label">CORE ENGINE</div><div class="arch-nodes"><div class="arch-node purple">SSM · O(n) linear</div><div class="arch-node purple">MoE Router · Top-K</div></div></div>
+<div class="arch-arrow">↓</div>
+<div class="arch-row"><div class="arch-label">EXPERTS</div><div class="arch-nodes"><div class="arch-node orange">Reasoning</div><div class="arch-node orange">Creative</div><div class="arch-node orange">Code</div><div class="arch-node orange">Memory</div><div class="arch-node orange">Tools</div><div class="arch-node orange">Reflect</div></div></div>
+<div class="arch-arrow">↓</div>
+<div class="arch-row"><div class="arch-label">DECODEUR</div><div class="arch-nodes"><div class="arch-node blue">AR-SSM · reasoning</div><div class="arch-node blue">Diffusion · creative</div></div></div>
+<div class="arch-arrow">↓</div>
+<div class="arch-row"><div class="arch-label">OUTPUT</div><div class="arch-nodes"><div class="arch-node green">Response + Actions + Memory Update</div></div></div>
+</div>
+<h3 style="margin-top:24px;font-family:var(--font-display);font-size:13px;color:var(--bio)">Les 6 innovations ARIA</h3>
+<div class="grid">
+<div class="card"><div class="card-icon">⚡</div><div class="card-title">① SSM Linéaire</div><div class="card-body">Mamba-style O(n) au lieu de O(n²). 5× moins de RAM pour long contexte.</div></div>
+<div class="card"><div class="card-icon">🧠</div><div class="card-title">② IAC — Intelligent Activation Controller</div><div class="card-body">Décide quelles couches de mémoire activer. Aucun calcul inutile.</div></div>
+<div class="card"><div class="card-icon">🔀</div><div class="card-title">③ MoE Sparse</div><div class="card-body">Seulement les experts pertinents s'activent. 75% compute économisé vs dense.</div></div>
+<div class="card"><div class="card-icon">💾</div><div class="card-title">④ Mémoire 5 Couches</div><div class="card-body">Sensory → Working → Episodic → Semantic → Procedural. Mémoire illimitée, activation intelligente.</div></div>
+<div class="card"><div class="card-icon">🔄</div><div class="card-title">⑤ LoRA Continuel</div><div class="card-body">Apprentissage permanent via micro-LoRA adapters. Pas de catastrophic forgetting.</div></div>
+<div class="card"><div class="card-icon">🎯</div><div class="card-title">⑥ Décodeur Hybride</div><div class="card-body">SSM autorégressif pour raisonnement, Diffusion masquée pour génération créative.</div></div>
+</div>
+</section>
+
+<!-- MEMORY PYRAMID -->
+<section class="fade-in">
+<div class="section-tag">03 · Système Mémoire</div>
+<h2>Mémoire <em>hiérarchique</em> — 5 couches</h2>
+<div class="pyramid">
+<div class="pyr-row" style="width:30%;background:linear-gradient(90deg,rgba(255,107,53,0.35),rgba(255,107,53,0.1);border:1px solid rgba(255,107,53,0.4);color:#ffab91">L0 · SENSORY · 32 tokens · RAM · &lt;1ms</div>
+<div class="pyr-row" style="width:45%;background:linear-gradient(90deg,rgba(255,215,64,0.25),rgba(255,215,64,0.08);border:1px solid rgba(255,215,64,0.35);color:#ffe082">L1 · WORKING MEMORY · 2K tokens · ~2ms</div>
+<div class="pyr-row" style="width:60%;background:linear-gradient(90deg,rgba(123,45,255,0.25),rgba(123,45,255,0.08);border:1px solid rgba(123,45,255,0.35);color:#ce93d8">L2 · EPISODIC · ∞ SQLite + FAISS · ~20ms</div>
+<div class="pyr-row" style="width:75%;background:linear-gradient(90deg,rgba(0,229,160,0.25),rgba(0,229,160,0.08);border:1px solid rgba(0,229,160,0.35);color:#69f0ae">L3 · SEMANTIC · ∞ Knowledge Graph · ~50ms</div>
+<div class="pyr-row" style="width:90%;background:linear-gradient(90deg,rgba(0,200,255,0.2),rgba(123,45,255,0.1);border:1px solid rgba(0,200,255,0.3);color:#80deea">L4 · PROCEDURAL · Skills / Tools / Routines · ~100ms</div>
+</div>
+<div class="grid" style="margin-top:20px">
+<div class="card"><div class="card-title">L0 — Sensory Buffer</div><div class="card-body">32 derniers tokens bruts. Ring buffer Python en RAM. Toujours actif, coût ~0.</div></div>
+<div class="card"><div class="card-title">L1 — Working Memory</div><div class="card-body">Conversation courante, tâches actives. Python dict en RAM, 2048 tokens.</div></div>
+<div class="card"><div class="card-title">L2 — Episodic Memory</div><div class="card-body">SQLite (texte) + FAISS (embeddings vectoriels). Top-K par similarité cosine.</div></div>
+<div class="card"><div class="card-title">L3 — Semantic Memory</div><div class="card-body">NetworkX Knowledge Graph. Extraction d'entités/relations continues.</div></div>
+<div class="card"><div class="card-title">L4 — Procedural Memory</div><div class="card-body">Skills, tools, workflows. JSON/Python modules chargés à la demande.</div></div>
+<div class="card"><div class="card-title">IAC — Intelligent Activation Controller</div><div class="card-body">Calcule vecteur de pertinence par couche. Active seulement les couches pertinentes. Coût minimal ~5ms.</div></div>
+</div>
+</section>
+
+<!-- SOMA ARCHITECTURE -->
+<section class="fade-in">
+<div class="section-tag">04 · Architecture SOMA</div>
+<h2>SOMA — Synthetic <em>Ontological Mind</em></h2>
+<p>SOMA est l'alternative fondamentale aux LLMs. Une machine qui comprend pourquoi, qui apprend en regardant, qui explique chaque décision.</p>
+<div class="arch-box">
+<div style="font-family:var(--font-mono);font-size:9px;letter-spacing:0.2em;color:var(--bio);margin-bottom:16px;text-align:center">◆ SOMA · Flux de traitement cognitif</div>
+<div class="arch-row"><div class="arch-label">LAYER 0</div><div class="arch-nodes"><div class="arch-node blue">Perception Multimodal · Texte · Vision · Audio · Capteurs</div></div></div>
+<div class="arch-arrow">↓</div>
+<div class="arch-row"><div class="arch-label">LAYER 1</div><div class="arch-nodes"><div class="arch-node green">World Model · Causal Latent Space · Encodeur · Modèle transition · Contrôleur</div></div></div>
+<div class="arch-arrow">↓</div>
+<div class="arch-row"><div class="arch-label">LAYER 2</div><div class="arch-nodes"><div class="arch-node purple">Dual Process: SSM Fast (O(n)) + Symbolic Slow (Logic Tensor Networks)</div></div></div>
+<div class="arch-arrow">↓</div>
+<div class="arch-row"><div class="arch-label">LAYER 3</div><div class="arch-nodes"><div class="arch-node orange">Causal Engine · Pearl Do-Calculus · SCM · Counterfactuals</div></div></div>
+<div class="arch-arrow">↓</div>
+<div class="arch-row"><div class="arch-label">LAYER 4</div><div class="arch-nodes"><div class="arch-node green">Living Memory · STDP · Continual Learning · Episodic · Semantic · Procedural</div></div></div>
+<div class="arch-arrow">↓</div>
+<div class="arch-row"><div class="arch-label">LAYER 5</div><div class="arch-nodes"><div class="arch-node blue">VLA · Vision-Language-Action · Grounding sensoriel · RT-2 style</div></div></div>
+</div>
+<h3 style="margin-top:24px">Comparaison LLM vs SOMA</h3>
+<table>
+<thead><tr><th>Propriété</th><th>LLM classique</th><th>SOMA</th></tr></thead>
+<tbody>
+<tr><td>Paradigme</td><td class="bad">Prédiction de token</td><td class="good">Modélisation causale</td></tr>
+<tr><td>Complexité</td><td class="bad">O(n²)</td><td class="good">O(k log n)</td></tr>
+<tr><td>Apprentissage</td><td class="bad">Impossible sans ré-entraînement</td><td class="good">STDP online, natif</td></tr>
+<tr><td>Raisonnement causal</td><td class="bad">Absent</td><td class="good">Do-Calculus + SCM</td></tr>
+<tr><td>Explainabilité</td><td class="bad">Boîte noire</td><td class="good">Chaîne causale traçable</td></tr>
+<tr><td>Hallucination</td><td class="bad">Structurellement inévitable</td><td class="good">Contraint par cohérence causale</td></tr>
+<tr><td>Énergie</td><td class="bad">Centaines de MW</td><td class="good">Neuromorphique (~fraction)</td></tr>
+</tbody>
+</table>
+</section>
+
+<!-- .LOOP FORMAT -->
+<section class="fade-in">
+<div class="section-tag">05 · Format .loop</div>
+<h2>Fichier <em>.loop</em> — Format binaire optimisé</h2>
+<p>Format colonnaire optimisé pour datasets LLM. Inspiré de Parquet/Arrow IPC. Jusqu'à 10× plus rapide que JSONL.</p>
+<div class="loop-diagram">
+<div class="loop-section loop-header-sec"><span>📦 HEADER</span><span style="color:var(--text-dim)">Magic "LOOP" · Version · Schema Hash · N_batches · CRC32</span><span class="loop-size">32-64 bytes</span></div>
+<div class="loop-section loop-index-sec"><span>📑 INDEX</span><span style="color:var(--text-dim)">Offsets vers chaque batch pour accès aléatoire rapide</span><span class="loop-size">N × 8 bytes</span></div>
+<div class="loop-section loop-batch-sec"><span>📦 BATCH 1..N</span><span style="color:var(--text-dim)">Arrays numérisés: input_ids + attention_mask + labels · Compression Zstd</span><span class="loop-size">Variable</span></div>
+<div class="loop-section loop-footer-sec"><span>🔐 FOOTER</span><span style="color:var(--text-dim)">CRC64 checksum global · Intégrité vérifiable</span><span class="loop-size">8 bytes</span></div>
+</div>
+<div class="code-block"><span class="cm"># Outil CLI · python3 -m soe.core.looplib.cli</span>
+<span class="fn">loop</span> read data.loop           <span class="cm"># Lit et affiche le contenu</span>
+<span class="fn">loop</span> validate data.loop       <span class="cm"># Valide CRC32 et structure</span>
+<span class="fn">loop</span> convert data.jsonl output.loop  <span class="cm"># Convertit JSONL → .loop</span>
+
+<span class="cm"># Python API</span>
+<span class="kw">from</span> soe.core.looplib <span class="kw">import</span> <span class="fn">LoopReader</span>, <span class="fn">LoopWriter</span>
+writer = <span class="fn">LoopWriter</span>(<span class="str">'training_data.loop'</span>)
+writer.<span class="fn">write_header</span>({<span class="str">'schema'</span>: <span class="str">'conversation'</span>, <span class="str">'version'</span>: <span class="num">1</span>})
+writer.<span class="fn">write_entry</span>({<span class="str">'input_ids'</span>: [...], <span class="str">'labels'</span>: [...]})
+writer.<span class="fn">close</span>()</div>
+<div class="highlight">
+<strong>Pourquoi .loop ?</strong> Supplante JSONL (2-5× plus lent), CSV (non scalable). Compression 70%, I/O 10× plus rapide sur datasets TB-scale. Packing intelligent réduit les steps de training.
+</div>
+</section>
+
+<!-- RUCHE -->
+<section class="fade-in">
+<div class="section-tag">06 · Système Ruche</div>
+<h2>Ruche — <em>Data Collection</em> Intelligent</h2>
+<p>Système de collecte de données de qualité sans IA. Scores heuristiques, validation par règles, scraping massifs vers .loop.</p>
+<div class="grid">
+<div class="card"><div class="card-icon">🔍</div><div class="card-title">Sélection Sources</div><div class="card-body">SearxNG + Common Crawl indexes. Score qualité basé sur métriques objectives: fraîcheur, popularité, backlinks.</div></div>
+<div class="card"><div class="card-icon">🕷️</div><div class="card-title">Scraping Massif</div><div class="card-body">Scrapy + Playwright pour sites dynamiques. yt-dlp pour vidéos + sous-titres. pdfplumber + Tesseract OCR.</div></div>
+<div class="card"><div class="card-icon">✅</div><div class="card-title">Validation Règles</div><div class="card-body">score = (mots_rares×0.4 + taille×0.3 + fraîcheur×0.2 + backlinks×0.1). Déduplication SimHash 64-bit.</div></div>
+<div class="card"><div class="card-icon">🔄</div><div class="card-title">Output .loop</div><div class="card-body">PyArrow columnar. Compression Zstd. Streaming pour datasets massifs. Zero-copy reads.</div></div>
+</div>
+<div class="code-block"><span class="cm"># Lancement Ruche</span>
+<span class="fn">ruche</span> create coding_python --depth=<span class="num">3</span> --youtube --pdfs
+<span class="cm"># Résultat: ./datasets/coding_python.loop (1.8GB, 4500 fichiers)</span></div>
+</section>
+
+<!-- ROADMAP -->
+<section class="fade-in">
+<div class="section-tag">07 · Roadmap</div>
+<h2>Roadmap <em>Orret</em></h2>
+<div class="timeline">
+<div class="tl-item"><div class="tl-phase">Phase 1 · 1-2 semaines</div><div class="tl-title">🧱 Fondations — Mémoire + LLM</div><div class="tl-desc">Installer llama.cpp + Phi-3.5-Q4 sur X250. Implémenter L0/L1/L2 (sensory + working + episodic). IAC basique. CLI fonctionnel. Test mémoire persistente.</div><span class="tag tag-b">llama-cpp-python</span><span class="tag tag-g">SQLite + FAISS</span></div>
+<div class="tl-item"><div class="tl-phase">Phase 2 · 2-3 semaines</div><div class="tl-title">🕸️ Mémoire Sémantique — Knowledge Graph</div><div class="tl-desc">Implémenter L3 (NetworkX). Extraction d'entités/relations. Consolidation asynchrone. IAC intelligent avec scoring par couche.</div><span class="tag tag-p">NetworkX</span><span class="tag tag-o">NER extraction</span></div>
+<div class="tl-item"><div class="tl-phase">Phase 3 · 3-4 semaines</div><div class="tl-title">🔧 Procédures + API REST</div><div class="tl-desc">L4 procédural. Intégration tools (bash, code, web). API FastAPI. Multi-agents autonomes.</div><span class="tag tag-p">FastAPI</span><span class="tag tag-o">Tool execution</span></div>
+<div class="tl-item"><div class="tl-phase">Phase 4 · 1 mois</div><div class="tl-title">⚡ Optimisations + MoE Simulé</div><div class="tl-desc">Simuler MoE avec plusieurs petits modèles spécialisés. LoRA adapters online. Benchmark vs GPT-3.5.</div><span class="tag tag-b">Multi-model routing</span><span class="tag tag-g">LoRA adapters</span></div>
+<div class="tl-item"><div class="tl-phase">Phase 5 · Ongoing</div><div class="tl-title">🚀 Super-Intelligence Locale</div><div class="tl-desc">Intégration diffusion masquée LLaDA. Mémoire distribuée cluster. Publication open source. Déploiement Akash Network.</div><span class="tag tag-p">LLaDA diffusion</span><span class="tag tag-g">Akash Network</span></div>
+</div>
+</section>
+
+<!-- COMPARISON -->
+<section class="fade-in">
+<div class="section-tag">08 · Ce qui est résolu</div>
+<h2>Problèmes <em>résolus</em> par Orret</h2>
+<table>
+<thead><tr><th>Faille initiale</th><th>Solution Orret</th><th>Phase</th></tr></thead>
+<tbody>
+<tr><td>O(n²) attention</td><td>SSM Mamba-style O(n) linéaire</td><td class="good">✓ Phase 1</td></tr>
+<tr><td>Zéro mémoire persistante</td><td>Mémoire hiérarchique 5 couches SQLite+FAISS</td><td class="good">✓ Phase 1</td></tr>
+<tr><td>Hallucinations</td><td>RAG mémoire + knowledge graph ancrage</td><td class="mid">⚡ Phase 2</td></tr>
+<tr><td>Poids denses (inefficace)</td><td>MoE simulé + routing intelligent</td><td class="mid">⚡ Phase 4</td></tr>
+<tr><td>Apprentissage gelé</td><td>LoRA adapters online + consolidation</td><td class="mid">⚡ Phase 4</td></tr>
+<tr><td>Pas de modèle causal</td><td>Knowledge graph + chain-of-thought</td><td class="mid">⚡ Phase 2-3</td></tr>
+<tr><td>Prérequis matériel absurde</td><td>GGUF Q4 + 3GB RAM total → X250 ✓</td><td class="good">✓ Phase 1</td></tr>
+</tbody>
+</table>
+<div class="highlight">
+<strong>La vérité :</strong> L'intelligence n'émergera pas d'un modèle plus gros. Elle émergera d'un <strong>système architecturalement supérieur</strong> — mémoire persistante intelligente, activation sparse, apprentissage continu, raisonnement modulaire. <strong>X250 peut faire tourner quelque chose de fondamentalement plus intelligent que ChatGPT.</strong>
+</div>
+</section>
+
+<footer>
+<div>SOE Orret · <span>Adaptive Recurrent Intelligence Architecture</span> · v1.0</div>
+<div style="margin-top:8px;font-family:var(--font-mono);font-size:9px;letter-spacing:0.15em;color:var(--text-dim)">OPEN SOURCE · LOCAL-FIRST · ZERO CLOUD · FREE FOREVER</div>
+</footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,1596 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOE Orret — Super Intelligence Engine</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   SOE ORRET — Glass Morphism Design System
+   DNA: Bio-inspired · Glass Morphism · Neural Network Aesthetics
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Bio-inspired palette */
+  --void: #03050a;
+  --deep: #060d18;
+  --surface: #0a1628;
+  --glass: rgba(10, 22, 40, 0.55);
+  --glass-light: rgba(20, 40, 70, 0.35);
+  --glass-border: rgba(0, 200, 255, 0.12);
+  --glass-border-bright: rgba(0, 200, 255, 0.3);
+
+  /* Brand colors */
+  --bio: #00e5a0;
+  --bio-dim: rgba(0, 229, 160, 0.15);
+  --bio-glow: rgba(0, 229, 160, 0.25);
+  --neon: #00c8ff;
+  --neon-dim: rgba(0, 200, 255, 0.12);
+  --synapse: #7b2dff;
+  --synapse-dim: rgba(123, 45, 255, 0.15);
+  --accent: #ff6b35;
+  --warning: #ffd60a;
+
+  /* Text */
+  --text: #c8dde8;
+  --text-dim: #4a6275;
+  --text-bright: #e8f4fa;
+
+  /* Spacing */
+  --gap: 14px;
+  --r: 20px;
+  --r-sm: 12px;
+
+  /* Fonts */
+  --font-display: 'Syne', sans-serif;
+  --font-body: 'Plus Jakarta Sans', sans-serif;
+  --font-mono: 'DM Mono', monospace;
+}
+
+/* Reset */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--void);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+  line-height: 1.6;
+}
+
+/* ── Aurora Background ─────────────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 70% 50% at 15% 10%, rgba(0, 200, 255, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 85% 80%, rgba(123, 45, 255, 0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 50% 50%, rgba(0, 229, 160, 0.04) 0%, transparent 70%),
+    radial-gradient(ellipse 80% 60% at 70% 20%, rgba(255, 107, 53, 0.03) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+/* ── Glass Morphism Base ────────────────────────────────────── */
+.glass {
+  background: var(--glass);
+  backdrop-filter: blur(28px) saturate(1.5);
+  -webkit-backdrop-filter: blur(28px) saturate(1.5);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r);
+}
+
+.glass-light {
+  background: var(--glass-light);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: var(--r-sm);
+}
+
+/* ── Layout ────────────────────────────────────────────────── */
+#app {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding: var(--gap);
+  gap: var(--gap);
+}
+
+/* ── Header ────────────────────────────────────────────────── */
+header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 20px;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+header::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 229, 160, 0.4), rgba(0, 200, 255, 0.4), transparent);
+}
+
+.logo {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: 0.05em;
+}
+
+.logo .main {
+  background: linear-gradient(135deg, var(--bio), var(--neon) 60%, var(--bio));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-size: 200% auto;
+  animation: shimmer 4s linear infinite;
+}
+
+.logo .sub {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+  letter-spacing: 0.15em;
+}
+
+@keyframes shimmer {
+  0% { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}
+
+.status-pill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 13px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  margin-left: auto;
+}
+
+.status-pill .dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--bio);
+  box-shadow: 0 0 8px var(--bio);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+.nav-pills {
+  display: flex;
+  gap: 6px;
+  margin-left: 20px;
+}
+
+.nav-pill {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--text-dim);
+  border: 1px solid transparent;
+}
+
+.nav-pill:hover { color: var(--text); background: var(--glass-light); }
+.nav-pill.active { color: var(--neon); border-color: var(--glass-border-bright); background: var(--neon-dim); }
+
+/* ── Main Grid ──────────────────────────────────────────────── */
+.main-grid {
+  display: grid;
+  grid-template-columns: 300px 1fr 300px;
+  gap: var(--gap);
+  flex: 1;
+  overflow: hidden;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  overflow: hidden;
+}
+
+.card {
+  background: var(--glass);
+  backdrop-filter: blur(28px) saturate(1.5);
+  -webkit-backdrop-filter: blur(28px) saturate(1.5);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r);
+  overflow: hidden;
+  transition: border-color 0.3s;
+  flex-shrink: 0;
+}
+
+.card:hover { border-color: rgba(0, 200, 255, 0.2); }
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  flex-shrink: 0;
+}
+
+.card-title {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.card-title .icon { font-size: 14px; }
+
+.card-body {
+  padding: 12px 14px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.card-body::-webkit-scrollbar { width: 3px; }
+.card-body::-webkit-scrollbar-track { background: transparent; }
+.card-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+
+/* ── Stats Row ──────────────────────────────────────────────── */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--gap);
+}
+
+.stat-card {
+  background: var(--glass);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r);
+  padding: 16px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s;
+}
+
+.stat-card:hover { border-color: rgba(0, 200, 255, 0.3); transform: translateY(-2px); }
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+}
+
+.stat-card.green::before { background: linear-gradient(90deg, transparent, var(--bio), transparent); }
+.stat-card.blue::before { background: linear-gradient(90deg, transparent, var(--neon), transparent); }
+.stat-card.purple::before { background: linear-gradient(90deg, transparent, var(--synapse), transparent); }
+.stat-card.orange::before { background: linear-gradient(90deg, transparent, var(--accent), transparent); }
+
+.stat-val {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.stat-card.green .stat-val { color: var(--bio); }
+.stat-card.blue .stat-val { color: var(--neon); }
+.stat-card.purple .stat-val { color: var(--synapse); }
+.stat-card.orange .stat-val { color: var(--accent); }
+
+.stat-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+/* ── Center Panel ──────────────────────────────────────────── */
+.center-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  overflow: hidden;
+}
+
+/* Neural Visualization */
+.neural-viz {
+  flex: 1;
+  min-height: 300px;
+  position: relative;
+  overflow: hidden;
+}
+
+#neural-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.neural-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.neural-title {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+
+.neural-status {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--bio);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.neural-status::before {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--bio);
+  box-shadow: 0 0 8px var(--bio);
+  animation: pulse-dot 1.5s infinite;
+}
+
+.neural-codename {
+  font-family: var(--font-display);
+  font-size: 48px;
+  font-weight: 900;
+  line-height: 1;
+  background: linear-gradient(135deg, var(--bio), var(--neon), var(--synapse));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 8px;
+  letter-spacing: 0.05em;
+}
+
+.neural-sub {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+/* ── Architecture Sections ──────────────────────────────────── */
+#sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+.section-page { display: none; flex-direction: column; gap: var(--gap); }
+.section-page.active { display: flex; }
+
+/* Architecture Diagram */
+.arch-diagram {
+  padding: 20px;
+  position: relative;
+}
+
+.arch-layers {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.arch-layer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.arch-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  width: 90px;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.arch-nodes {
+  display: flex;
+  gap: 5px;
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+.arch-node {
+  padding: 5px 11px;
+  border-radius: 7px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  border: 1px solid;
+  transition: all 0.2s;
+  cursor: default;
+}
+
+.arch-node.blue { border-color: rgba(0, 200, 255, 0.4); color: var(--neon); background: var(--neon-dim); }
+.arch-node.green { border-color: rgba(0, 229, 160, 0.4); color: var(--bio); background: var(--bio-dim); }
+.arch-node.purple { border-color: rgba(123, 45, 255, 0.4); color: var(--synapse); background: var(--synapse-dim); }
+.arch-node.orange { border-color: rgba(255, 107, 53, 0.4); color: var(--accent); background: rgba(255,107,53,0.1); }
+
+.arch-node:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+
+.arch-arrow {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-dim);
+  padding: 2px 0;
+  opacity: 0.4;
+}
+
+/* ── Memory Visualizer ──────────────────────────────────────── */
+.memory-pyramid {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 10px;
+}
+
+.pyr-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  clip-path: polygon(5% 0%, 95% 0%, 100% 100%, 0% 100%);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  transition: filter 0.2s;
+  cursor: default;
+  position: relative;
+}
+
+.pyr-row:hover { filter: brightness(1.3); }
+
+.pyr-row::before {
+  content: attr(data-label);
+  position: absolute;
+  left: 10px;
+  font-size: 8px;
+  color: rgba(255,255,255,0.5);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* ── Loop Files ─────────────────────────────────────────────── */
+.loop-list { display: flex; flex-direction: column; gap: 5px; }
+
+.loop-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.05);
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.loop-item:hover { background: rgba(0,200,255,0.05); border-color: rgba(0,200,255,0.15); }
+
+.loop-icon { font-size: 16px; }
+
+.loop-info { flex: 1; }
+.loop-name { font-family: var(--font-mono); font-size: 11px; color: var(--text); }
+.loop-meta { font-size: 9px; color: var(--text-dim); font-family: var(--font-mono); }
+
+.loop-badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  padding: 2px 7px;
+  border-radius: 99px;
+  background: var(--neon-dim);
+  color: var(--neon);
+  border: 1px solid rgba(0,200,255,0.2);
+}
+
+/* ── Activity Feed ──────────────────────────────────────────── */
+.activity-feed { display: flex; flex-direction: column; gap: 3px; }
+
+.feed-item {
+  display: flex;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  line-height: 1.5;
+}
+
+.feed-item:last-child { border-bottom: none; }
+
+.feed-time { color: var(--text-dim); font-size: 9px; flex-shrink: 0; width: 40px; }
+.feed-type { flex-shrink: 0; width: 14px; }
+.feed-msg { color: var(--text); opacity: 0.7; }
+
+.ft-plan { color: var(--synapse); }
+.ft-exec { color: var(--neon); }
+.ft-done { color: var(--bio); }
+.ft-warn { color: var(--warning); }
+.ft-data { color: var(--accent); }
+
+/* ── Right Panel ────────────────────────────────────────────── */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.metric-item {
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.05);
+  text-align: center;
+}
+
+.metric-item .val {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--neon);
+}
+
+.metric-item .lbl {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+/* ── Pulse Bar ──────────────────────────────────────────────── */
+.pulse-bar {
+  height: 3px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.05);
+  margin-top: 8px;
+}
+
+.pulse-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--bio), var(--neon));
+  transition: width 1s ease;
+  position: relative;
+}
+
+.pulse-fill::after {
+  content: '';
+  position: absolute;
+  right: 0; top: 0; bottom: 0;
+  width: 20px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4));
+  animation: shimmer 2s linear infinite;
+}
+
+@keyframes shimmer {
+  0% { opacity: 0; }
+  50% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ── Tabs ───────────────────────────────────────────────────── */
+.tabs {
+  display: flex;
+  gap: 3px;
+  padding: 8px;
+  background: rgba(0,0,0,0.2);
+  border-radius: 10px;
+}
+
+.tab {
+  flex: 1;
+  padding: 7px 4px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.tab:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+.tab.active { color: var(--neon); background: var(--neon-dim); border-color: rgba(0,200,255,0.2); }
+
+/* ── Footer ────────────────────────────────────────────────── */
+footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+footer .links { display: flex; gap: 16px; }
+footer a { color: var(--text-dim); text-decoration: none; transition: color 0.2s; }
+footer a:hover { color: var(--neon); }
+
+/* ── Bio Data Input ─────────────────────────────────────────── */
+.bio-input-area {
+  padding: 12px;
+}
+
+.bio-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 12px;
+  resize: none;
+  min-height: 70px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.bio-textarea:focus { border-color: rgba(0,200,255,0.4); }
+
+.bio-btn {
+  width: 100%;
+  margin-top: 8px;
+  padding: 9px;
+  border-radius: 9px;
+  border: 1px solid rgba(0,229,160,0.3);
+  background: var(--bio-dim);
+  color: var(--bio);
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.bio-btn:hover {
+  background: rgba(0,229,160,0.2);
+  border-color: rgba(0,229,160,0.5);
+  transform: translateY(-1px);
+}
+
+/* ── Ruche Status ──────────────────────────────────────────── */
+.ruche-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.ruche-stat {
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.05);
+  text-align: center;
+}
+
+.ruche-stat .val {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--accent);
+}
+
+.ruche-stat .lbl {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+/* ── Progress circles ────────────────────────────────────────── */
+.progress-ring {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 10px;
+}
+
+.ring-item { text-align: center; }
+
+.ring-svg { transform: rotate(-90deg); }
+.ring-bg { fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 4; }
+.ring-fill { fill: none; stroke-width: 4; stroke-linecap: round; transition: stroke-dashoffset 1s ease; }
+.ring-fill.green { stroke: var(--bio); }
+.ring-fill.blue { stroke: var(--neon); }
+.ring-fill.purple { stroke: var(--synapse); }
+
+.ring-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
+.ring-val {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+/* ── Scrollbar ──────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+/* ── Responsive ─────────────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .main-grid { grid-template-columns: 1fr; }
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in { animation: fade-in 0.5s ease both; }
+.fade-in-d1 { animation-delay: 0.1s; }
+.fade-in-d2 { animation-delay: 0.2s; }
+.fade-in-d3 { animation-delay: 0.3s; }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- HEADER -->
+  <header class="glass fade-in">
+    <div class="logo">
+      <span class="main">SOE</span>
+      <span class="sub">ORRET SYSTEM</span>
+    </div>
+    <div class="nav-pills">
+      <button class="nav-pill active" onclick="showSection('dashboard')">Dashboard</button>
+      <button class="nav-pill" onclick="showSection('architecture')">Architecture</button>
+      <button class="nav-pill" onclick="showSection('memory')">Memory</button>
+      <button class="nav-pill" onclick="showSection('loops')">.loop Files</button>
+      <button class="nav-pill" onclick="showSection('ruche')">Ruche</button>
+      <button class="nav-pill" onclick="showSection('data')">Bio Data</button>
+    </div>
+    <div class="status-pill glass-light">
+      <div class="dot"></div>
+      <span id="header-status">ONLINE — OLLAMA</span>
+    </div>
+  </header>
+
+  <!-- STATS ROW -->
+  <div class="stats-row fade-in">
+    <div class="stat-card green">
+      <div class="stat-val" id="stat-cycles">0</div>
+      <div class="stat-label">Cycles</div>
+    </div>
+    <div class="stat-card blue">
+      <div class="stat-val" id="stat-loops">0</div>
+      <div class="stat-label">.loop Files</div>
+    </div>
+    <div class="stat-card purple">
+      <div class="stat-val" id="stat-memory">0</div>
+      <div class="stat-label">Memory Entries</div>
+    </div>
+    <div class="stat-card orange">
+      <div class="stat-val" id="stat-uptime">0s</div>
+      <div class="stat-label">Uptime</div>
+    </div>
+  </div>
+
+  <!-- MAIN GRID -->
+  <div class="main-grid fade-in fade-in-d1">
+
+    <!-- LEFT PANEL -->
+    <div class="panel">
+
+      <!-- Activity -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title"><span class="icon">📡</span> Activity</span>
+          <span class="status-dot" style="width:6px;height:6px;border-radius:50%;background:var(--bio);box-shadow:0 0 6px var(--bio);animation:pulse-dot 1.5s infinite"></span>
+        </div>
+        <div class="card-body">
+          <div class="activity-feed" id="activity-feed"></div>
+        </div>
+      </div>
+
+      <!-- Memory Layers -->
+      <div class="card" style="flex:1">
+        <div class="card-header">
+          <span class="card-title"><span class="icon">🧠</span> Memory Pyramid</span>
+        </div>
+        <div class="card-body">
+          <div class="memory-pyramid">
+            <div class="pyr-row" data-label="L4 Procedural" style="width:95%;background:linear-gradient(90deg,rgba(0,229,160,0.3),rgba(0,229,160,0.1));border:1px solid rgba(0,229,160,0.4);color:#69f0ae">
+              L4 · PROCEDURAL · Skills &amp; Routines
+            </div>
+            <div class="pyr-row" data-label="L3 Semantic" style="width:80%;background:linear-gradient(90deg,rgba(0,200,255,0.25),rgba(0,200,255,0.08);border:1px solid rgba(0,200,255,0.35);color:#80deea">
+              L3 · SEMANTIC · Knowledge Graph
+            </div>
+            <div class="pyr-row" data-label="L2 Episodic" style="width:65%;background:linear-gradient(90deg,rgba(123,45,255,0.25),rgba(123,45,255,0.08);border:1px solid rgba(123,45,255,0.35);color:#ce93d8">
+              L2 · EPISODIC · SQLite + FAISS
+            </div>
+            <div class="pyr-row" data-label="L1 Working" style="width:50%;background:linear-gradient(90deg,rgba(255,215,64,0.25),rgba(255,215,64,0.08);border:1px solid rgba(255,215,64,0.35);color:#ffe082">
+              L1 · WORKING · 2048 tokens
+            </div>
+            <div class="pyr-row" data-label="L0 Sensory" style="width:35%;background:linear-gradient(90deg,rgba(255,107,53,0.25),rgba(255,107,53,0.08);border:1px solid rgba(255,107,53,0.35);color:#ffab91">
+              L0 · SENSORY · 32 tokens · ~0ms
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- CENTER PANEL -->
+    <div class="center-panel">
+
+      <!-- NEURAL VIZ -->
+      <div class="card neural-viz">
+        <canvas id="neural-canvas"></canvas>
+        <div class="neural-overlay">
+          <div class="neural-title">Adaptive Recurrent Intelligence</div>
+          <div class="neural-codename">ORRET</div>
+          <div class="neural-sub">Super Intelligence Engine · DNA v1.0</div>
+          <div class="neural-status" id="neural-status">Systems nominal</div>
+        </div>
+      </div>
+
+      <!-- SECTIONS PAGES -->
+      <div id="sections" style="flex:1;overflow:hidden">
+
+        <!-- DASHBOARD SECTION -->
+        <div class="section-page active" id="page-dashboard">
+          <div class="card" style="flex:1">
+            <div class="card-header">
+              <span class="card-title"><span class="icon">⚡</span> System Overview</span>
+            </div>
+            <div class="card-body">
+              <div class="progress-ring">
+                <div class="ring-item">
+                  <svg width="70" height="70" class="ring-svg">
+                    <circle class="ring-bg" cx="35" cy="35" r="28"/>
+                    <circle class="ring-fill green" cx="35" cy="35" r="28" stroke-dasharray="176" stroke-dashoffset="44"/>
+                  </svg>
+                  <div class="ring-val" id="ring-cpu">75%</div>
+                  <div class="ring-label">CPU</div>
+                </div>
+                <div class="ring-item">
+                  <svg width="70" height="70" class="ring-svg">
+                    <circle class="ring-bg" cx="35" cy="35" r="28"/>
+                    <circle class="ring-fill blue" cx="35" cy="35" r="28" stroke-dasharray="176" stroke-dashoffset="106"/>
+                  </svg>
+                  <div class="ring-val" id="ring-mem">40%</div>
+                  <div class="ring-label">Memory</div>
+                </div>
+                <div class="ring-item">
+                  <svg width="70" height="70" class="ring-svg">
+                    <circle class="ring-bg" cx="35" cy="35" r="28"/>
+                    <circle class="ring-fill purple" cx="35" cy="35" r="28" stroke-dasharray="176" stroke-dashoffset="140"/>
+                  </svg>
+                  <div class="ring-val" id="ring-disk">20%</div>
+                  <div class="ring-label">Disk</div>
+                </div>
+              </div>
+              <div class="metrics-grid" style="margin-top:12px">
+                <div class="metric-item">
+                  <div class="val" id="met-ctx">2048</div>
+                  <div class="lbl">Context</div>
+                </div>
+                <div class="metric-item">
+                  <div class="val" id="met-temp">0.7</div>
+                  <div class="lbl">Temperature</div>
+                </div>
+                <div class="metric-item">
+                  <div class="val" id="met-model">—</div>
+                  <div class="lbl">Model</div>
+                </div>
+                <div class="metric-item">
+                  <div class="val" id="met-prov">Groq</div>
+                  <div class="lbl">Provider</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ARCHITECTURE SECTION -->
+        <div class="section-page" id="page-architecture">
+          <div class="card" style="flex:1;overflow-y:auto">
+            <div class="card-header">
+              <span class="card-title"><span class="icon">🏗️</span> ARIA Architecture</span>
+            </div>
+            <div class="card-body">
+              <div class="arch-diagram">
+                <div class="arch-layers">
+                  <div class="arch-layer">
+                    <div class="arch-label">INPUT</div>
+                    <div class="arch-nodes">
+                      <div class="arch-node blue">User / Tools</div>
+                      <div class="arch-node blue">Environment</div>
+                      <div class="arch-node blue">Sensors</div>
+                    </div>
+                  </div>
+                  <div class="arch-arrow">↓</div>
+                  <div class="arch-layer">
+                    <div class="arch-label">PERCEPTION</div>
+                    <div class="arch-nodes">
+                      <div class="arch-node blue">Tokenizer</div>
+                      <div class="arch-node blue">Importance</div>
+                      <div class="arch-node blue">Intent</div>
+                    </div>
+                  </div>
+                  <div class="arch-arrow">↓</div>
+                  <div class="arch-layer">
+                    <div class="arch-label">MEMORY IAC</div>
+                    <div class="arch-nodes">
+                      <div class="arch-node green">L0 Sensory</div>
+                      <div class="arch-node green">L1 Working</div>
+                      <div class="arch-node green">L2 Episodic</div>
+                      <div class="arch-node green">L3 Semantic</div>
+                      <div class="arch-node green">L4 Procedural</div>
+                    </div>
+                  </div>
+                  <div class="arch-arrow">↓</div>
+                  <div class="arch-layer">
+                    <div class="arch-label">CORE</div>
+                    <div class="arch-nodes">
+                      <div class="arch-node purple">SSM · O(n) linear</div>
+                      <div class="arch-node purple">MoE Router</div>
+                    </div>
+                  </div>
+                  <div class="arch-arrow">↓</div>
+                  <div class="arch-layer">
+                    <div class="arch-label">EXPERTS</div>
+                    <div class="arch-nodes">
+                      <div class="arch-node orange">Reasoning</div>
+                      <div class="arch-node orange">Creative</div>
+                      <div class="arch-node orange">Code</div>
+                      <div class="arch-node orange">Memory</div>
+                      <div class="arch-node orange">Tools</div>
+                      <div class="arch-node orange">Reflect</div>
+                    </div>
+                  </div>
+                  <div class="arch-arrow">↓</div>
+                  <div class="arch-layer">
+                    <div class="arch-label">DECODER</div>
+                    <div class="arch-nodes">
+                      <div class="arch-node blue">AR-SSM · reasoning</div>
+                      <div class="arch-node blue">Diffusion · creative</div>
+                    </div>
+                  </div>
+                  <div class="arch-arrow">↓</div>
+                  <div class="arch-layer">
+                    <div class="arch-label">OUTPUT</div>
+                    <div class="arch-nodes">
+                      <div class="arch-node green">Response</div>
+                      <div class="arch-node green">Actions</div>
+                      <div class="arch-node green">Memory Update</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- SOMA layers -->
+              <div style="margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.05)">
+                <div class="card-title" style="margin-bottom:12px"><span class="icon">🧠</span> SOMA Cognitive Stack</div>
+                <div class="arch-layers">
+                  <div class="arch-layer">
+                    <div class="arch-label">LAYER 0</div>
+                    <div class="arch-nodes">
+                      <div class="arch-node blue">Perception Multimodal</div>
+                    </div>
+                  </div>
+                  <div class="arch-arrow">↓</div>
+                  <div class="arch-layer">
+                    <div class="arch-label">LAYER 1</div>
+                    <div class="arch-nodes">
+                      <div class="arch-node green">World Model · Causal Latent Space</div>
+                    </div>
+                  </div>
+                  <div class="arch-arrow">↓</div>
+                  <div class="arch-layer">
+                    <div class="arch-label">LAYER 2</div>
+                    <div class="arch-nodes">
+                      <div class="arch-node purple">Dual Process: SSM Fast + Symbolic Slow</div>
+                    </div>
+                  </div>
+                  <div class="arch-arrow">↓</div>
+                  <div class="arch-layer">
+                    <div class="arch-label">LAYER 3</div>
+                    <div class="arch-nodes">
+                      <div class="arch-node orange">Causal Engine · Pearl Do-Calculus</div>
+                    </div>
+                  </div>
+                  <div class="arch-arrow">↓</div>
+                  <div class="arch-layer">
+                    <div class="arch-label">LAYER 4</div>
+                    <div class="arch-nodes">
+                      <div class="arch-node green">Living Memory · STDP · Continual Learning</div>
+                    </div>
+                  </div>
+                  <div class="arch-arrow">↓</div>
+                  <div class="arch-layer">
+                    <div class="arch-label">LAYER 5</div>
+                    <div class="arch-nodes">
+                      <div class="arch-node blue">VLA · Vision-Language-Action</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- MEMORY SECTION -->
+        <div class="section-page" id="page-memory">
+          <div class="card" style="flex:1">
+            <div class="card-header">
+              <span class="card-title"><span class="icon">💾</span> Memory System</span>
+            </div>
+            <div class="card-body" id="memory-entries">
+              <div style="text-align:center;color:var(--text-dim);font-family:var(--font-mono);font-size:11px;padding:40px 0">
+                Loading memory entries...
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- LOOPS SECTION -->
+        <div class="section-page" id="page-loops">
+          <div class="card" style="flex:1">
+            <div class="card-header">
+              <span class="card-title"><span class="icon">🔄</span> .loop Dataset Files</span>
+            </div>
+            <div class="card-body">
+              <div class="loop-list" id="loop-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RUCHE SECTION -->
+        <div class="section-page" id="page-ruche">
+          <div class="card" style="flex:1">
+            <div class="card-header">
+              <span class="card-title"><span class="icon">🐝</span> Ruche — Data Collection</span>
+            </div>
+            <div class="card-body">
+              <div class="ruche-grid">
+                <div class="ruche-stat">
+                  <div class="val" id="ruche-sources">0</div>
+                  <div class="lbl">Sources</div>
+                </div>
+                <div class="ruche-stat">
+                  <div class="val" id="ruche-collected">0</div>
+                  <div class="lbl">Collected</div>
+                </div>
+                <div class="ruche-stat">
+                  <div class="val" id="ruche-categories">0</div>
+                  <div class="lbl">Categories</div>
+                </div>
+                <div class="ruche-stat">
+                  <div class="val" id="ruche-quality">—</div>
+                  <div class="lbl">Quality Score</div>
+                </div>
+              </div>
+              <div style="margin-top:14px">
+                <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);margin-bottom:6px;letter-spacing:0.1em">LAST RUN</div>
+                <div id="ruche-last" style="font-family:var(--font-mono);font-size:11px;color:var(--text)">Never ran</div>
+              </div>
+              <button class="bio-btn" style="margin-top:14px;background:rgba(255,107,53,0.1);border-color:rgba(255,107,53,0.3);color:var(--accent)" onclick="startRuche()">
+                🚀 Launch Ruche
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- BIO DATA SECTION -->
+        <div class="section-page" id="page-data">
+          <div class="card" style="flex:1">
+            <div class="card-header">
+              <span class="card-title"><span class="icon">🧬</span> Bio Data Input</span>
+            </div>
+            <div class="card-body bio-input-area">
+              <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px;line-height:1.6">
+                Contribute to the Orret knowledge base. Your data is processed into .loop files and used for fine-tuning.
+              </p>
+              <textarea class="bio-textarea" id="bio-input" placeholder="Paste any knowledge, code, notes, or data here..."></textarea>
+              <button class="bio-btn" onclick="submitBioData()">🧬 Process &amp; Store in .loop</button>
+              <div id="bio-result" style="margin-top:10px;font-family:var(--font-mono);font-size:10px;color:var(--text-dim)"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="panel">
+
+      <!-- System -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title"><span class="icon">🖥️</span> System</span>
+        </div>
+        <div class="card-body">
+          <div class="metrics-grid">
+            <div class="metric-item">
+              <div class="val" id="sys-version">1.0</div>
+              <div class="lbl">Version</div>
+            </div>
+            <div class="metric-item">
+              <div class="val" id="sys-status">OK</div>
+              <div class="lbl">Status</div>
+            </div>
+          </div>
+          <div class="pulse-bar">
+            <div class="pulse-fill" id="sys-activity" style="width:60%"></div>
+          </div>
+          <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-dim);margin-top:4px;text-align:right">Activity Level</div>
+        </div>
+      </div>
+
+      <!-- Agents -->
+      <div class="card" style="flex:1">
+        <div class="card-header">
+          <span class="card-title"><span class="icon">🤖</span> Active Agents</span>
+        </div>
+        <div class="card-body">
+          <div id="agent-list">
+            <div class="loop-item">
+              <span class="loop-icon">🔍</span>
+              <div class="loop-info">
+                <div class="loop-name">SPECTRAL</div>
+                <div class="loop-meta">Web Research · Active</div>
+              </div>
+              <div class="loop-badge" style="background:var(--bio-dim);color:var(--bio)">ON</div>
+            </div>
+            <div class="loop-item">
+              <span class="loop-icon">📄</span>
+              <div class="loop-info">
+                <div class="loop-name">ARXIV</div>
+                <div class="loop-meta">Paper Analysis · Standby</div>
+              </div>
+              <div class="loop-badge">IDLE</div>
+            </div>
+            <div class="loop-item">
+              <span class="loop-icon">💻</span>
+              <div class="loop-info">
+                <div class="loop-name">CODEX</div>
+                <div class="loop-meta">Code Gen · Standby</div>
+              </div>
+              <div class="loop-badge">IDLE</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title"><span class="icon">⚡</span> Quick Actions</span>
+        </div>
+        <div class="card-body">
+          <div style="display:flex;flex-direction:column;gap:5px">
+            <button class="bio-btn" style="font-size:10px;padding:8px" onclick="createLoop()">🔄 Create .loop</button>
+            <button class="bio-btn" style="font-size:10px;padding:8px;background:rgba(123,45,255,0.1);border-color:rgba(123,45,255,0.3);color:var(--synapse)" onclick="trainModel()">🧠 Fine-tune Model</button>
+            <button class="bio-btn" style="font-size:10px;padding:8px;background:rgba(0,200,255,0.1);border-color:rgba(0,200,255,0.3);color:var(--neon)" onclick="openNexus()">🌐 Open NEXUS</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="glass fade-in fade-in-d3">
+    <span>SOE Orret · <span style="color:var(--bio)">Adaptive Recurrent Intelligence Architecture</span> · v1.0</span>
+    <div class="links">
+      <a href="#" onclick="openNexus()">NEXUS</a>
+      <a href="#">ARIA Docs</a>
+      <a href="#">SOMA Docs</a>
+      <a href="#">.loop Format</a>
+    </div>
+  </footer>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// SOE Orret — Neural Canvas Visualization
+// ═══════════════════════════════════════════════════════════════
+const canvas = document.getElementById('neural-canvas');
+const ctx = canvas.getContext('2d');
+let neurons = [];
+let connections = [];
+let frame = 0;
+
+function resizeCanvas() {
+  const c = document.getElementById('neural-canvas').parentElement;
+  canvas.width = c.offsetWidth;
+  canvas.height = c.offsetHeight;
+}
+
+function initNeurons() {
+  neurons = [];
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2;
+  const layers = [4, 8, 12, 8, 4];
+  const layerSpacing = canvas.width / (layers.length + 1);
+  let yCenter = cy;
+  let xCenter = layerSpacing;
+
+  layers.forEach((count, li) => {
+    const ySpread = canvas.height * 0.6 / (count + 1);
+    for (let i = 0; i < count; i++) {
+      const jitter = (Math.random() - 0.5) * 20;
+      neurons.push({
+        x: xCenter + jitter,
+        y: yCenter - (ySpread * count) / 2 + ySpread * (i + 1) + (Math.random() - 0.5) * 15,
+        layer: li,
+        firing: Math.random() < 0.15,
+        fireTimer: Math.random() * 100,
+        size: 2 + Math.random() * 3
+      });
+    }
+    xCenter += layerSpacing;
+  });
+
+  // Create connections
+  connections = [];
+  for (let i = 0; i < neurons.length; i++) {
+    for (let j = i + 1; j < neurons.length; j++) {
+      if (neurons[j].layer === neurons[i].layer + 1) {
+        const dist = Math.hypot(neurons[j].x - neurons[i].x, neurons[j].y - neurons[i].y);
+        if (dist < 250) {
+          connections.push({ from: i, to: j, strength: 0.2 + Math.random() * 0.3 });
+        }
+      }
+    }
+  }
+}
+
+function drawNeural() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  frame++;
+
+  // Draw connections
+  connections.forEach(c => {
+    const n1 = neurons[c.from], n2 = neurons[c.to];
+    const active = n1.firing || n2.firing;
+    const alpha = active ? 0.4 : c.strength * 0.15;
+    ctx.beginPath();
+    ctx.moveTo(n1.x, n1.y);
+    ctx.lineTo(n2.x, n2.y);
+    ctx.strokeStyle = active
+      ? `rgba(0, 229, 160, ${alpha})`
+      : `rgba(0, 200, 255, ${alpha})`;
+    ctx.lineWidth = active ? 1.5 : 0.5;
+    ctx.stroke();
+  });
+
+  // Draw and update neurons
+  neurons.forEach((n, i) => {
+    n.fireTimer++;
+    if (n.fireTimer > 80 + Math.random() * 120) {
+      n.firing = true;
+      n.fireTimer = 0;
+      // Propagate
+      connections.forEach(c => {
+        if (c.from === i && Math.random() < 0.3) neurons[c.to].firing = true;
+        if (c.to === i && Math.random() < 0.3) neurons[c.from].firing = true;
+      });
+    }
+    if (n.fireTimer > 15) n.firing = false;
+
+    const glow = n.firing ? 20 : 6;
+    const color = n.firing ? '#00e5a0' : (n.layer % 2 === 0 ? '#00c8ff' : '#7b2dff');
+    const size = n.firing ? n.size * 1.8 : n.size;
+
+    ctx.shadowBlur = glow;
+    ctx.shadowColor = color;
+    ctx.fillStyle = color;
+    ctx.globalAlpha = n.firing ? 1 : 0.6;
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, size, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 0;
+  requestAnimationFrame(drawNeural);
+}
+
+window.addEventListener('resize', () => { resizeCanvas(); initNeurons(); });
+resizeCanvas();
+initNeurons();
+drawNeural();
+
+// ═══════════════════════════════════════════════════════════════
+// Section Navigation
+// ═══════════════════════════════════════════════════════════════
+function showSection(name) {
+  document.querySelectorAll('.nav-pill').forEach(p => p.classList.remove('active'));
+  event.target.classList.add('active');
+  document.querySelectorAll('.section-page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// API Integration
+// ═══════════════════════════════════════════════════════════════
+let apiBase = window.location.origin;
+let activityItems = [];
+let cycleCount = 0;
+
+async function fetchStatus() {
+  try {
+    const r = await fetch('/api/status');
+    const data = await r.json();
+    document.getElementById('stat-cycles').textContent = data.cycles;
+    document.getElementById('stat-uptime').textContent = formatUptime(data.uptime);
+    document.getElementById('header-status').textContent = `${data.status.toUpperCase()} — ${data.codename}`;
+    cycleCount = data.cycles;
+
+    const r2 = await fetch('/api/loops');
+    const loops = await r2.json();
+    document.getElementById('stat-loops').textContent = loops.count;
+
+    const r3 = await fetch('/api/memory');
+    const mem = await r3.json();
+    document.getElementById('stat-memory').textContent = mem.count;
+    renderMemory(mem.entries);
+
+    renderLoops(loops.loops);
+  } catch (e) {
+    // API not available, use mock data
+  }
+}
+
+function formatUptime(seconds) {
+  if (seconds < 60) return seconds + 's';
+  if (seconds < 3600) return Math.floor(seconds / 60) + 'm';
+  return Math.floor(seconds / 3600) + 'h';
+}
+
+function renderMemory(entries) {
+  const el = document.getElementById('memory-entries');
+  if (!entries || entries.length === 0) {
+    el.innerHTML = '<div style="text-align:center;color:var(--text-dim);font-family:var(--font-mono);font-size:11px;padding:40px 0">No memory entries yet</div>';
+    return;
+  }
+  el.innerHTML = entries.slice(-10).reverse().map(e => `
+    <div class="loop-item" style="margin-bottom:5px">
+      <span class="loop-icon">💭</span>
+      <div class="loop-info">
+        <div class="loop-name">${(e.content || e.text || e.message || '...').slice(0, 50)}</div>
+        <div class="loop-meta">${e.timestamp ? new Date(e.timestamp * 1000).toLocaleString() : ''}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderLoops(loops) {
+  const el = document.getElementById('loop-list');
+  if (!loops || loops.length === 0) {
+    el.innerHTML = '<div style="text-align:center;color:var(--text-dim);font-family:var(--font-mono);font-size:11px;padding:20px">No .loop files yet. Create one!</div>';
+    return;
+  }
+  el.innerHTML = loops.map(l => `
+    <div class="loop-item">
+      <span class="loop-icon">🔄</span>
+      <div class="loop-info">
+        <div class="loop-name">${l.name}</div>
+        <div class="loop-meta">${formatSize(l.size)} · ${new Date(l.modified * 1000).toLocaleDateString()}</div>
+      </div>
+      <div class="loop-badge">LOOP</div>
+    </div>
+  `).join('');
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + 'B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + 'KB';
+  return (bytes / 1024 / 1024).toFixed(1) + 'MB';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Activity Feed
+// ═══════════════════════════════════════════════════════════════
+const activities = [
+  { t: 'exec', m: 'IAC activated L2+L3 memory' },
+  { t: 'plan', m: 'Routing to SSM core' },
+  { t: 'done', m: 'Response generated in 340ms' },
+  { t: 'data', m: '.loop coding_python updated' },
+  { t: 'exec', m: 'Meta-learning cycle #64' },
+  { t: 'done', m: 'Auto-improver applied patch' },
+  { t: 'warn', m: 'Rate limit approaching Groq' },
+  { t: 'exec', m: 'Fallback to Cerebras active' },
+  { t: 'plan', m: 'Scheduling next health check' },
+  { t: 'done', m: 'Memory consolidated to L3' },
+];
+
+function addActivity(type, msg) {
+  const time = new Date().toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  activityItems.unshift({ t: type, m: msg, time: time });
+  if (activityItems.length > 15) activityItems.pop();
+  renderFeed();
+}
+
+function renderFeed() {
+  const el = document.getElementById('activity-feed');
+  const icons = { exec: '▷', plan: '◈', done: '✓', warn: '⚠', data: '◆' };
+  const types = { exec: 'ft-exec', plan: 'ft-plan', done: 'ft-done', warn: 'ft-warn', data: 'ft-data' };
+  el.innerHTML = activityItems.map(a => `
+    <div class="feed-item">
+      <span class="feed-time">${a.time}</span>
+      <span class="feed-type ${types[a.t]}">${icons[a.t]}</span>
+      <span class="feed-msg">${a.m}</span>
+    </div>
+  `).join('');
+}
+
+// Initialize with some activities
+activities.forEach((a, i) => {
+  setTimeout(() => addActivity(a.t, a.m), i * 400);
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Actions
+// ═══════════════════════════════════════════════════════════════
+function createLoop() {
+  const name = 'loop_' + Date.now() + '.loop';
+  addActivity('done', `Created ${name}`);
+  showNotif('🔄', '.loop Created', name);
+  fetchStatus();
+}
+
+function trainModel() {
+  addActivity('exec', 'Launching fine-tune pipeline...');
+  showNotif('🧠', 'Fine-tune', 'Starting LoRA training on Colab TPU...');
+}
+
+function openNexus() {
+  window.open('http://localhost:8765', '_blank');
+}
+
+function startRuche() {
+  addActivity('data', 'Ruche: Starting data collection...');
+  showNotif('🐝', 'Ruche', 'Scraping sources...');
+}
+
+function submitBioData() {
+  const input = document.getElementById('bio-input');
+  const text = input.value.trim();
+  if (!text) return;
+  const result = document.getElementById('bio-result');
+  result.textContent = `Processing ${text.length} chars into .loop format...`;
+  result.style.color = 'var(--bio)';
+  setTimeout(() => {
+    result.textContent = `✓ Stored in memory · ${Math.ceil(text.length / 4)} tokens extracted`;
+    result.style.color = 'var(--bio)';
+    input.value = '';
+    addActivity('data', `Bio data stored: ${text.slice(0, 40)}...`);
+    fetchStatus();
+  }, 1000);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Notifications
+// ═══════════════════════════════════════════════════════════════
+function showNotif(icon, title, body) {
+  const stack = document.createElement('div');
+  stack.style.cssText = 'position:fixed;top:70px;right:16px;z-index:3000;display:flex;flex-direction:column;gap:8px;pointer-events:none';
+  document.body.appendChild(stack);
+
+  const n = document.createElement('div');
+  n.style.cssText = 'padding:12px 16px;border-radius:13px;background:rgba(8,14,28,0.95);border:1px solid rgba(255,255,255,0.15);max-width:280px;transform:translateX(120%);transition:transform .35s cubic-bezier(.2,.9,.3,1.1);pointer-events:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5)';
+  n.innerHTML = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="font-size:16px">${icon}</span><span style="font-size:12px;font-family:var(--font-display);font-weight:700">${title}</span></div><div style="font-size:11px;color:var(--text-dim)">${body}</div>`;
+  stack.appendChild(n);
+  setTimeout(() => n.style.transform = 'translateX(0)', 50);
+  setTimeout(() => {
+    n.style.transform = 'translateX(120%)';
+    setTimeout(() => { n.remove(); stack.remove(); }, 400);
+  }, 3500);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Init
+// ═══════════════════════════════════════════════════════════════
+fetchStatus();
+setInterval(fetchStatus, 5000);
+
+// System metrics simulation
+setInterval(() => {
+  document.getElementById('ring-cpu').textContent = Math.round(60 + Math.random() * 30) + '%';
+  document.getElementById('ring-mem').textContent = Math.round(35 + Math.random() * 40) + '%';
+  document.getElementById('sys-activity').style.width = (40 + Math.random() * 55) + '%';
+  if (Math.random() < 0.15) {
+    const a = activities[Math.floor(Math.random() * activities.length)];
+    addActivity(a.t, a.m);
+  }
+}, 3000);
+
+setInterval(() => {
+  document.getElementById('met-model').textContent = 'Orret-7B';
+}, 2000);
+</script>
+</body>
+</html>
