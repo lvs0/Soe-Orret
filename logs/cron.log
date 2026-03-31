@@ -297,3 +297,105 @@ Running: monitor
 Running: looplib
 Running: monitor
 Running: looplib
+Running: monitor
+Running: looplib
+Running: monitor
+Running: looplib
+2026-03-30 02:00:01,841 - ruche - INFO - Collecting from: github
+2026-03-30 02:00:02,934 - ruche - INFO - Collecting from: github
+2026-03-30 02:00:09,258 - ruche - INFO - Collecting from: wikipedia
+2026-03-30 02:00:09,267 - ruche - INFO - Collecting from: wikipedia
+2026-03-30 02:00:09,701 - ruche - INFO - Collecting from: stackoverflow
+2026-03-30 02:00:09,723 - ruche - INFO - Collecting from: stackoverflow
+2026-03-30 02:00:14,094 - ruche - INFO - Collecting from: arxiv
+2026-03-30 02:00:14,112 - ruche - INFO - Collecting from: arxiv
+Fetching topic: python
+Fetching topic: machine-learning
+Fetching topic: llm
+Fetching topic: ai
+✅ GitHub: 78 entries written to /home/l-vs/soe/datasets/raw/github_20260330.loop
+✅ Wikipedia: 0 entries written to /home/l-vs/soe/datasets/raw/wikipedia_20260330.loop
+✅ StackOverflow: 900 entries
+✅ ArXiv: 0 papers
+Running: monitor
+Running: ruche
+Fetching topic: python
+Fetching topic: machine-learning
+Fetching topic: llm
+Fetching topic: ai
+✅ GitHub: 78 entries written to /home/l-vs/soe/datasets/raw/github_20260330.loop
+✅ Wikipedia: 0 entries written to /home/l-vs/soe/datasets/raw/wikipedia_20260330.loop
+✅ StackOverflow: 900 entries
+✅ ArXiv: 0 papers
+Running: looplib
+Running: monitor
+Running: looplib
+Running: monitor
+Running: looplib
+Running: monitor
+Running: looplib
+Running: monitor
+Running: looplib
+Running: monitor
+Running: looplib
+Running: monitor
+Running: looplib
+Running: monitor
+Running: looplib
+Running: monitor
+Running: looplib
+Running: monitor
+Running: looplib
+Running: monitor
+Running: looplib
+Running: monitor
+Running: looplib
+Running: monitor
+Running: looplib
+Running: monitor
+Running: looplib
+Running: monitor
+Running: looplib
+Running: monitor
+Running: looplib
+Running: monitor
+Running: looplib
+Running: monitor
+Running: looplib
+Running: monitor
+Running: looplib
+Running: monitor
+Running: looplib
+Running: monitor
+Running: looplib
+Running: monitor
+Running: looplib
+Running: monitor
+Running: looplib
+Running: monitor
+Running: looplib
+Traceback (most recent call last):
+  File "/home/l-vs/soe/agents/ruche_agent.py", line 13, in <module>
+    from ruche.ruche import Ruche
+ImportError: cannot import name 'Ruche' from 'ruche.ruche' (/home/l-vs/soe/ruche/ruche.py)
+Running: monitor
+Running: ruche
+Traceback (most recent call last):
+  File "/home/l-vs/soe/claw_prime_runner.py", line 77, in <module>
+    daily_routine()
+  File "/home/l-vs/soe/claw_prime_runner.py", line 61, in daily_routine
+    results.append(run_task('ruche'))
+                   ^^^^^^^^^^^^^^^^^
+  File "/home/l-vs/soe/claw_prime_runner.py", line 30, in run_task
+    from ruche.ruche import Ruche
+ImportError: cannot import name 'Ruche' from 'ruche.ruche' (/home/l-vs/soe/ruche/ruche.py)
+Running: monitor
+Running: looplib
+Running: monitor
+Running: looplib
+Running: monitor
+Running: looplib
+Running: monitor
+Running: looplib
+Running: monitor
+Running: looplib
