@@ -1,54 +1,100 @@
 # Soe-Orret
 
-Soe-Orret — autonomous agent with block diffusion sampling, 5-layer SQLite memory (Aria), and FastAPI orchestrator.
+A modular AI system featuring block-based diffusion sampling, hierarchical memory, and agent orchestration.
 
 ## Structure
 
 ```
 soe-orret/
-├── sampler/
-│   └── block_diffuser.py   # 16-step block diffusion sampler
-├── memory/
-│   └── aria.py             # 5-layer SQLite memory (cache, working, short-term, long-term, archive)
-├── agent/
-│   └── orchestrator.py     # top-level agent coordinating memory + sampler
-├── api/
-│   └── server.py           # FastAPI server
+├── sampler/           # Block diffusion sampler (16 steps)
+│   ├── __init__.py
+│   └── block_diffuser.py
+├── memory/            # Aria 5-layer memory system
+│   ├── __init__.py
+│   └── aria.py
+├── agent/             # Agent orchestration
+│   ├── __init__.py
+│   └── orchestrator.py
+├── api/               # FastAPI REST server
+│   ├── __init__.py
+│   └── server.py
 ├── requirements.txt
 └── README.md
 ```
 
-## Setup
+## Components
+
+### Sampler (`sampler/block_diffuser.py`)
+Block-based diffusion sampler with configurable 16-step schedule.
+- DDPM-style forward/reverse diffusion
+- Block-wise processing for efficiency
+- Multiple beta schedules (linear, cosine, quadratic)
+
+### Memory (`memory/aria.py`)
+5-layer hierarchical SQLite memory system:
+- Layer 0: Working memory (immediate)
+- Layer 1: Short-term (session-level)
+- Layer 2: Medium-term (day-level)
+- Layer 3: Long-term (week/month)
+- Layer 4: Archive (permanent)
+
+Features automatic promotion/demotion based on access patterns.
+
+### Agent (`agent/orchestrator.py`)
+Central orchestrator for multi-agent coordination:
+- Task queue with priority scheduling
+- Dependency resolution
+- Role-based agent assignment
+- Workflow builder
+
+### API (`api/server.py`)
+FastAPI REST API exposing all components:
+- `/sampler/sample` - Generate diffusion samples
+- `/memory/*` - Store, retrieve, query memories
+- `/agent/*` - Submit tasks, manage workflows
+- `/system/stats` - System statistics
+
+## Installation
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## Run
+## Usage
 
+### Run API Server
 ```bash
-python -m api.server
-# → http://localhost:8000
+cd api
+python server.py
 ```
 
-## API
+Or with uvicorn directly:
+```bash
+uvicorn api.server:app --host 0.0.0.0 --port 8000
+```
 
-- `GET /` — system info
-- `GET /health` — health check
-- `POST /generate` — block diffusion generation
-- `POST /memory/store` — store in memory layer (0-4)
-- `POST /memory/query` — query memory
-- `GET /memory/stats` — memory statistics
-- `POST /events/emit` — emit event
-- `GET /stats` — global statistics
-- `GET /agents` — list agents
-- `GET /agents/{id}` — agent status
+### API Examples
 
-## Architecture
+**Generate samples:**
+```bash
+curl -X POST http://localhost:8000/sampler/sample \
+  -H "Content-Type: application/json" \
+  -d '{"batch_size": 2, "height": 64, "width": 64, "num_steps": 16}'
+```
 
-- **BlockDiffuser**: 16-step diffusion with probabilistic noise scheduling
-- **AriaMemory**: 5-layer SQLite → cache / working / short-term / long-term / archive
-- **Orchestrator**: async event-driven agent coordination
+**Store memory:**
+```bash
+curl -X POST http://localhost:8000/memory/store \
+  -H "Content-Type: application/json" \
+  -d '{"key": "user_pref", "content": "Dark mode preferred", "layer": 1, "priority": 0.9}'
+```
+
+**Submit task:**
+```bash
+curl -X POST http://localhost:8000/agent/task \
+  -H "Content-Type: application/json" \
+  -d '{"task_id": "task_1", "description": "Process data", "role": "executor", "priority": 1.5}'
+```
 
 ## License
 

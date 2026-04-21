@@ -1,166 +1,195 @@
 """
-API Server - Serveur FastAPI pour Soe-Orret
-Endpoints REST pour interagir avec le système.
+API Server - FastAPI-based REST API for Soe-Orret
+Exposes sampler, memory, and agent orchestration endpoints
 """
 
 import asyncio
-import time
+import json
+from typing import Optional, Dict, Any, List
 from contextlib import asynccontextmanager
-from typing import Dict, List, Optional, Any
+from datetime import datetime
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+import uvicorn
+
+# Import Soe-Orret modules
+import sys
+sys.path.insert(0, '/tmp/soe-work')
+
+from sampler.block_diffuser import BlockDiffuser, DiffusionConfig, SimpleNoiseModel
+from memory.aria import AriaMemory, MemoryEntry
+from agent.orchestrator import Orchestrator, WorkflowBuilder, AgentRole, TaskStatus
 
 
-# Modèles Pydantic
+# ============================================================================
+# Pydantic Models
+# ============================================================================
 
-class GenerateRequest(BaseModel):
-    """Requête de génération."""
-    steps: int = Field(default=16, ge=1, le=100)
-    num_blocks: int = Field(default=4, ge=1, le=32)
-    block_size: int = Field(default=64, ge=8, le=512)
-    condition: Optional[List[float]] = None
-
-
-class GenerateResponse(BaseModel):
-    """Réponse de génération."""
-    blocks_generated: int
-    config: Dict[str, Any]
-    generation_time_ms: float
-
-
-class StoreRequest(BaseModel):
-    """Requête de stockage."""
-    content: str = Field(..., min_length=1, max_length=10000)
-    layer: int = Field(default=2, ge=0, le=4)
-    tags: List[str] = Field(default_factory=list)
-    priority: float = Field(default=0.5, ge=0.0, le=1.0)
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+class DiffusionRequest(BaseModel):
+    """Request model for diffusion sampling"""
+    batch_size: int = Field(default=1, ge=1, le=16)
+    channels: int = Field(default=3, ge=1, le=16)
+    height: int = Field(default=64, ge=16, le=512)
+    width: int = Field(default=64, ge=16, le=512)
+    num_steps: int = Field(default=16, ge=1, le=100)
+    block_size: int = Field(default=64, ge=16, le=256)
+    num_blocks: int = Field(default=8, ge=1, le=32)
+    schedule: str = Field(default="linear", pattern="^(linear|cosine|quadratic)$")
+    use_blocks: bool = Field(default=False)
 
 
-class StoreResponse(BaseModel):
-    """Réponse de stockage."""
-    stored: bool
-    id: str
+class DiffusionResponse(BaseModel):
+    """Response model for diffusion sampling"""
+    status: str
+    shape: List[int]
+    num_steps: int
+    sample_stats: Dict[str, float]
+    message: str
+
+
+class MemoryStoreRequest(BaseModel):
+    """Request model for storing memory"""
+    key: str = Field(..., min_length=1, max_length=256)
+    content: str = Field(..., min_length=1)
+    layer: int = Field(default=1, ge=0, le=4)
+    priority: float = Field(default=1.0, ge=0.0, le=1.0)
+    metadata: Optional[Dict[str, Any]] = Field(default=None)
+
+
+class MemoryResponse(BaseModel):
+    """Response model for memory operations"""
+    status: str
+    key: str
     layer: int
+    message: str
 
 
-class QueryRequest(BaseModel):
-    """Requête de recherche."""
-    layer: Optional[int] = Field(default=None, ge=0, le=4)
-    tags: List[str] = Field(default_factory=list)
-    limit: int = Field(default=10, ge=1, le=100)
-    since: Optional[float] = None
-
-
-class MemoryEntryResponse(BaseModel):
-    """Réponse d'entrée mémoire."""
-    id: str
-    layer: int
-    layer_name: str
-    content: str
-    timestamp: float
-    tags: List[str]
-    priority: float
-
-
-class QueryResponse(BaseModel):
-    """Réponse de recherche."""
+class MemoryQueryResponse(BaseModel):
+    """Response model for memory queries"""
+    status: str
     count: int
-    entries: List[MemoryEntryResponse]
+    entries: List[Dict[str, Any]]
 
 
-class EventRequest(BaseModel):
-    """Requête d'événement."""
-    type: str
-    data: Dict[str, Any] = Field(default_factory=dict)
-    priority: str = Field(default="normal")
-    target: Optional[str] = None
+class TaskSubmitRequest(BaseModel):
+    """Request model for submitting a task"""
+    task_id: str = Field(..., min_length=1, max_length=64)
+    description: str = Field(..., min_length=1)
+    role: str = Field(default="general", pattern="^(planner|executor|critic|memory|sampler|general)$")
+    priority: float = Field(default=1.0, ge=0.0, le=10.0)
+    dependencies: List[str] = Field(default_factory=list)
+    metadata: Optional[Dict[str, Any]] = Field(default=None)
 
 
-class EventResponse(BaseModel):
-    """Réponse d'événement."""
-    emitted: bool
-    event_id: str
+class TaskResponse(BaseModel):
+    """Response model for task operations"""
+    status: str
+    task_id: str
+    task_status: str
+    message: str
 
 
-class StatsResponse(BaseModel):
-    """Réponse de statistiques."""
-    uptime_seconds: float
-    agents_registered: int
-    agents_idle: int
-    agents_running: int
-    events_processed: int
-    events_failed: int
-    success_rate: float
-    memory_stats: Optional[Dict[str, Any]] = None
+class WorkflowSubmitRequest(BaseModel):
+    """Request model for submitting a workflow"""
+    tasks: List[TaskSubmitRequest]
 
 
-class AgentStatusResponse(BaseModel):
-    """Réponse de statut d'agent."""
-    id: str
-    name: str
-    state: str
-    capabilities: List[str]
-    task_count: int
-    success_count: int
-    success_rate: float
-    uptime: float
+class SystemStatsResponse(BaseModel):
+    """Response model for system statistics"""
+    status: str
+    timestamp: str
+    sampler: Dict[str, Any]
+    memory: Dict[str, Any]
+    orchestrator: Dict[str, Any]
 
 
-# État global
+# ============================================================================
+# Global State
+# ============================================================================
 
-class AppState:
-    """État partagé de l'application."""
+class SoeOrretState:
+    """Global state for the Soe-Orret system"""
     
     def __init__(self):
-        self.orchestrator = None
-        self.memory = None
-        self.start_time = None
-        self.db_path = "aria_memory.db"
+        self.diffuser: Optional[BlockDiffuser] = None
+        self.noise_model: Optional[SimpleNoiseModel] = None
+        self.memory: Optional[AriaMemory] = None
+        self.orchestrator: Optional[Orchestrator] = None
+        self.initialized: bool = False
+    
+    def initialize(self):
+        """Initialize all components"""
+        if self.initialized:
+            return
+        
+        # Initialize sampler
+        config = DiffusionConfig(num_steps=16, block_size=64, num_blocks=8)
+        self.diffuser = BlockDiffuser(config)
+        self.noise_model = SimpleNoiseModel()
+        
+        # Initialize memory
+        self.memory = AriaMemory(db_path="/tmp/soe-work/aria_memory.db")
+        
+        # Initialize orchestrator
+        self.orchestrator = Orchestrator(max_workers=4)
+        self._setup_default_agents()
+        self.orchestrator.start()
+        
+        self.initialized = True
+        print("Soe-Orret system initialized")
+    
+    def _setup_default_agents(self):
+        """Setup default agents"""
+        roles = [
+            ("planner_1", "Planner Alpha", AgentRole.PLANNER),
+            ("executor_1", "Executor Beta", AgentRole.EXECUTOR),
+            ("executor_2", "Executor Gamma", AgentRole.EXECUTOR),
+            ("critic_1", "Critic Delta", AgentRole.CRITIC),
+            ("general_1", "General Epsilon", AgentRole.GENERAL),
+        ]
+        
+        for agent_id, name, role in roles:
+            self.orchestrator.register_agent(agent_id, name, role)
+    
+    def shutdown(self):
+        """Shutdown all components"""
+        if self.orchestrator:
+            self.orchestrator.stop()
+        self.initialized = False
 
 
-app_state = AppState()
+# Global state instance
+state = SoeOrretState()
 
 
-# Lifespan
+# ============================================================================
+# Lifespan Management
+# ============================================================================
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Gestion du cycle de vie de l'application."""
+    """Application lifespan manager"""
     # Startup
-    from agent.orchestrator import Orchestrator, SamplerAgent, MemoryAgent
-    
-    app_state.start_time = time.time()
-    app_state.orchestrator = Orchestrator(max_workers=4)
-    
-    # Enregistre les agents
-    sampler = SamplerAgent(app_state.orchestrator)
-    memory = MemoryAgent(app_state.orchestrator, app_state.db_path)
-    
-    app_state.orchestrator.register_agent(sampler.agent)
-    app_state.orchestrator.register_agent(memory.agent)
-    
-    # Démarre l'orchestrateur
-    await app_state.orchestrator.start()
-    
+    state.initialize()
     yield
-    
     # Shutdown
-    await app_state.orchestrator.stop()
+    state.shutdown()
 
 
-# Application FastAPI
+# ============================================================================
+# FastAPI Application
+# ============================================================================
 
 app = FastAPI(
     title="Soe-Orret API",
-    description="Système d'orchestration événementielle avec diffusion par blocs",
+    description="REST API for Soe-Orret: Block diffusion sampler, Aria memory, and agent orchestration",
     version="0.1.0",
     lifespan=lifespan
 )
 
-# CORS
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -170,231 +199,419 @@ app.add_middleware(
 )
 
 
-# Endpoints
+# ============================================================================
+# Health & Info Endpoints
+# ============================================================================
 
 @app.get("/")
 async def root():
-    """Endpoint racine."""
+    """Root endpoint"""
     return {
-        "name": "Soe-Orret",
+        "name": "Soe-Orret API",
         "version": "0.1.0",
-        "description": "Système d'orchestration événementielle"
+        "status": "running",
+        "endpoints": [
+            "/sampler/sample",
+            "/memory/store",
+            "/memory/retrieve/{key}",
+            "/memory/query/{layer}",
+            "/agent/task",
+            "/agent/tasks",
+            "/agent/agents",
+            "/system/stats"
+        ]
     }
 
 
 @app.get("/health")
 async def health():
-    """Health check."""
+    """Health check endpoint"""
     return {
         "status": "healthy",
-        "uptime": time.time() - app_state.start_time if app_state.start_time else 0
+        "initialized": state.initialized,
+        "timestamp": datetime.utcnow().isoformat()
     }
 
 
-@app.post("/generate", response_model=GenerateResponse)
-async def generate(request: GenerateRequest):
-    """
-    Génère une séquence de blocs via diffusion.
-    """
-    from sampler.block_diffuser import BlockDiffuser, DiffusionConfig
-    
-    start = time.time()
-    
-    config = DiffusionConfig(
-        num_steps=request.steps,
-        block_size=request.block_size,
-        num_blocks=request.num_blocks
-    )
-    
-    diffuser = BlockDiffuser(config)
-    
-    # Génère les blocs
-    condition = torch.tensor(request.condition) if request.condition else None
-    blocks = diffuser.generate_sequence(num_blocks=request.num_blocks, condition=condition)
-    
-    elapsed = (time.time() - start) * 1000
-    
-    return GenerateResponse(
-        blocks_generated=len(blocks),
-        config={
-            "steps": config.num_steps,
-            "block_size": config.block_size,
-            "num_blocks": config.num_blocks
-        },
-        generation_time_ms=elapsed
-    )
+# ============================================================================
+# Sampler Endpoints
+# ============================================================================
 
-
-@app.post("/memory/store", response_model=StoreResponse)
-async def memory_store(request: StoreRequest):
+@app.post("/sampler/sample", response_model=DiffusionResponse)
+async def sample_diffusion(request: DiffusionRequest):
     """
-    Stocke une entrée en mémoire.
+    Generate samples using the block diffuser
     """
-    from memory.aria import AriaMemory, MemoryEntry
+    if not state.initialized:
+        raise HTTPException(status_code=503, detail="System not initialized")
     
-    aria = AriaMemory(app_state.db_path)
-    
-    entry = MemoryEntry(
-        layer=request.layer,
-        content=request.content,
-        tags=request.tags,
-        priority=request.priority,
-        metadata=request.metadata
-    )
-    
-    entry_id = aria.store(entry)
-    
-    return StoreResponse(
-        stored=True,
-        id=entry_id,
-        layer=request.layer
-    )
-
-
-@app.post("/memory/query", response_model=QueryResponse)
-async def memory_query(request: QueryRequest):
-    """
-    Recherche des entrées en mémoire.
-    """
-    from memory.aria import AriaMemory
-    
-    aria = AriaMemory(app_state.db_path)
-    
-    entries = aria.query(
-        layer=request.layer,
-        tags=request.tags if request.tags else None,
-        since=request.since,
-        limit=request.limit
-    )
-    
-    layer_names = {
-        0: "cache",
-        1: "working",
-        2: "short_term",
-        3: "long_term",
-        4: "archive"
-    }
-    
-    return QueryResponse(
-        count=len(entries),
-        entries=[
-            MemoryEntryResponse(
-                id=e.id,
-                layer=e.layer,
-                layer_name=layer_names.get(e.layer, "unknown"),
-                content=e.content[:200] + "..." if len(e.content) > 200 else e.content,
-                timestamp=e.timestamp,
-                tags=e.tags,
-                priority=e.priority
+    try:
+        # Update config if needed
+        if request.num_steps != state.diffuser.config.num_steps:
+            config = DiffusionConfig(
+                num_steps=request.num_steps,
+                block_size=request.block_size,
+                num_blocks=request.num_blocks,
+                schedule=request.schedule
             )
-            for e in entries
-        ]
+            diffuser = BlockDiffuser(config)
+        else:
+            diffuser = state.diffuser
+        
+        shape = (request.batch_size, request.channels, request.height, request.width)
+        
+        # Generate samples
+        if request.use_blocks:
+            samples = diffuser.sample_blocks(state.noise_model, shape)
+        else:
+            samples = diffuser.sample(state.noise_model, shape)
+        
+        # Compute stats
+        sample_stats = {
+            "mean": float(samples.mean()),
+            "std": float(samples.std()),
+            "min": float(samples.min()),
+            "max": float(samples.max())
+        }
+        
+        return DiffusionResponse(
+            status="success",
+            shape=list(shape),
+            num_steps=request.num_steps,
+            sample_stats=sample_stats,
+            message=f"Generated {request.batch_size} samples with {request.num_steps} steps"
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Sampling failed: {str(e)}")
+
+
+@app.get("/sampler/config")
+async def get_sampler_config():
+    """Get current sampler configuration"""
+    if not state.initialized:
+        raise HTTPException(status_code=503, detail="System not initialized")
+    
+    config = state.diffuser.config
+    return {
+        "num_steps": config.num_steps,
+        "block_size": config.block_size,
+        "num_blocks": config.num_blocks,
+        "schedule": config.schedule,
+        "beta_start": config.beta_start,
+        "beta_end": config.beta_end
+    }
+
+
+# ============================================================================
+# Memory Endpoints
+# ============================================================================
+
+@app.post("/memory/store", response_model=MemoryResponse)
+async def store_memory(request: MemoryStoreRequest):
+    """Store a memory entry"""
+    if not state.initialized:
+        raise HTTPException(status_code=503, detail="System not initialized")
+    
+    try:
+        entry = state.memory.store(
+            key=request.key,
+            content=request.content,
+            layer=request.layer,
+            priority=request.priority,
+            metadata=request.metadata
+        )
+        
+        return MemoryResponse(
+            status="success",
+            key=entry.key,
+            layer=entry.layer,
+            message=f"Stored memory in layer {entry.layer}"
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Store failed: {str(e)}")
+
+
+@app.get("/memory/retrieve/{key}")
+async def retrieve_memory(key: str):
+    """Retrieve a memory entry by key"""
+    if not state.initialized:
+        raise HTTPException(status_code=503, detail="System not initialized")
+    
+    entry = state.memory.retrieve(key)
+    
+    if entry is None:
+        raise HTTPException(status_code=404, detail=f"Memory not found: {key}")
+    
+    return {
+        "status": "success",
+        "entry": {
+            "key": entry.key,
+            "content": entry.content,
+            "layer": entry.layer,
+            "priority": entry.priority,
+            "access_count": entry.access_count,
+            "created_at": entry.created_at,
+            "accessed_at": entry.accessed_at,
+            "metadata": entry.metadata
+        }
+    }
+
+
+@app.get("/memory/query/{layer}", response_model=MemoryQueryResponse)
+async def query_memory(
+    layer: int,
+    limit: int = Query(default=100, ge=1, le=1000),
+    min_priority: float = Query(default=0.0, ge=0.0, le=1.0)
+):
+    """Query memories from a specific layer"""
+    if not state.initialized:
+        raise HTTPException(status_code=503, detail="System not initialized")
+    
+    if not 0 <= layer <= 4:
+        raise HTTPException(status_code=400, detail="Layer must be 0-4")
+    
+    entries = state.memory.query_layer(layer, limit, min_priority)
+    
+    return MemoryQueryResponse(
+        status="success",
+        count=len(entries),
+        entries=[{
+            "key": e.key,
+            "content": e.content[:100] + "..." if len(e.content) > 100 else e.content,
+            "priority": e.priority,
+            "access_count": e.access_count
+        } for e in entries]
     )
+
+
+@app.get("/memory/search")
+async def search_memory(
+    query: str = Query(..., min_length=1),
+    limit: int = Query(default=10, ge=1, le=100)
+):
+    """Search memories across all layers"""
+    if not state.initialized:
+        raise HTTPException(status_code=503, detail="System not initialized")
+    
+    results = state.memory.search(query, limit)
+    
+    return {
+        "status": "success",
+        "count": len(results),
+        "results": [{
+            "layer": layer,
+            "key": entry.key,
+            "content": entry.content[:100] + "..." if len(entry.content) > 100 else e.content,
+            "priority": entry.priority
+        } for layer, entry in results]
+    }
 
 
 @app.get("/memory/stats")
 async def memory_stats():
-    """
-    Statistiques de la mémoire.
-    """
-    from memory.aria import AriaMemory
+    """Get memory statistics"""
+    if not state.initialized:
+        raise HTTPException(status_code=503, detail="System not initialized")
     
-    aria = AriaMemory(app_state.db_path)
-    return aria.get_stats()
-
-
-@app.post("/events/emit", response_model=EventResponse)
-async def emit_event(request: EventRequest):
-    """
-    Émet un événement dans le système.
-    """
-    from agent.orchestrator import Event, EventPriority
-    
-    priority_map = {
-        "critical": EventPriority.CRITICAL,
-        "high": EventPriority.HIGH,
-        "normal": EventPriority.NORMAL,
-        "low": EventPriority.LOW,
-        "background": EventPriority.BACKGROUND
+    return {
+        "status": "success",
+        "stats": state.memory.stats()
     }
-    
-    priority = priority_map.get(request.priority, EventPriority.NORMAL)
-    
-    event = Event(
-        id=f"",
-        type=request.type,
-        data=request.data,
-        priority=priority,
-        target=request.target
-    )
-    
-    success = await app_state.orchestrator.emit(event)
-    
-    return EventResponse(
-        emitted=success,
-        event_id=event.id
-    )
 
 
-@app.get("/stats", response_model=StatsResponse)
-async def get_stats():
-    """
-    Statistiques globales du système.
-    """
-    from memory.aria import AriaMemory
+@app.post("/memory/consolidate")
+async def consolidate_memory(background_tasks: BackgroundTasks):
+    """Trigger memory consolidation (runs in background)"""
+    if not state.initialized:
+        raise HTTPException(status_code=503, detail="System not initialized")
     
-    orch_stats = app_state.orchestrator.get_stats()
+    def do_consolidation():
+        state.memory.consolidate()
     
-    # Récupère les stats mémoire
+    background_tasks.add_task(do_consolidation)
+    
+    return {
+        "status": "started",
+        "message": "Memory consolidation started in background"
+    }
+
+
+# ============================================================================
+# Agent Endpoints
+# ============================================================================
+
+@app.post("/agent/task", response_model=TaskResponse)
+async def submit_task(request: TaskSubmitRequest):
+    """Submit a new task to the orchestrator"""
+    if not state.initialized:
+        raise HTTPException(status_code=503, detail="System not initialized")
+    
     try:
-        aria = AriaMemory(app_state.db_path)
-        mem_stats = aria.get_stats()
-    except Exception:
-        mem_stats = None
+        role = AgentRole(request.role)
+        
+        task = state.orchestrator.submit_task(
+            task_id=request.task_id,
+            description=request.description,
+            role=role,
+            priority=request.priority,
+            dependencies=request.dependencies,
+            metadata=request.metadata
+        )
+        
+        return TaskResponse(
+            status="success",
+            task_id=task.id,
+            task_status=task.status.name,
+            message=f"Task {task.id} submitted with status {task.status.name}"
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Task submission failed: {str(e)}")
+
+
+@app.get("/agent/task/{task_id}")
+async def get_task(task_id: str):
+    """Get task status and details"""
+    if not state.initialized:
+        raise HTTPException(status_code=503, detail="System not initialized")
     
-    return StatsResponse(
-        uptime_seconds=orch_stats['uptime_seconds'],
-        agents_registered=orch_stats['agents_registered'],
-        agents_idle=orch_stats['agents_idle'],
-        agents_running=orch_stats['agents_running'],
-        events_processed=orch_stats['events_processed'],
-        events_failed=orch_stats['events_failed'],
-        success_rate=orch_stats['success_rate'],
-        memory_stats=mem_stats
+    task = state.orchestrator.get_task(task_id)
+    
+    if task is None:
+        raise HTTPException(status_code=404, detail=f"Task not found: {task_id}")
+    
+    return {
+        "status": "success",
+        "task": task.to_dict()
+    }
+
+
+@app.get("/agent/tasks")
+async def list_tasks(
+    status: Optional[str] = Query(default=None, pattern="^(PENDING|RUNNING|COMPLETED|FAILED|CANCELLED)$")
+):
+    """List all tasks, optionally filtered by status"""
+    if not state.initialized:
+        raise HTTPException(status_code=503, detail="System not initialized")
+    
+    task_status = TaskStatus[status] if status else None
+    tasks = state.orchestrator.list_tasks(task_status)
+    
+    return {
+        "status": "success",
+        "count": len(tasks),
+        "tasks": [t.to_dict() for t in tasks]
+    }
+
+
+@app.post("/agent/workflow")
+async def submit_workflow(request: WorkflowSubmitRequest):
+    """Submit a workflow of multiple tasks"""
+    if not state.initialized:
+        raise HTTPException(status_code=503, detail="System not initialized")
+    
+    try:
+        # Convert request tasks to dict format
+        task_dicts = []
+        for t in request.tasks:
+            task_dicts.append({
+                "id": t.task_id,
+                "description": t.description,
+                "role": t.role,
+                "priority": t.priority,
+                "dependencies": t.dependencies,
+                "metadata": t.metadata
+            })
+        
+        tasks = state.orchestrator.create_workflow(task_dicts)
+        
+        return {
+            "status": "success",
+            "count": len(tasks),
+            "tasks": [t.to_dict() for t in tasks]
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Workflow submission failed: {str(e)}")
+
+
+@app.get("/agent/agents")
+async def list_agents(
+    role: Optional[str] = Query(default=None, pattern="^(planner|executor|critic|memory|sampler|general)$")
+):
+    """List all registered agents"""
+    if not state.initialized:
+        raise HTTPException(status_code=503, detail="System not initialized")
+    
+    agent_role = AgentRole(role) if role else None
+    agents = state.orchestrator.list_agents(agent_role)
+    
+    return {
+        "status": "success",
+        "count": len(agents),
+        "agents": [{
+            "id": a.id,
+            "name": a.name,
+            "role": a.role.value,
+            "capabilities": list(a.capabilities),
+            "is_available": a.is_available,
+            "total_tasks_completed": a.total_tasks_completed
+        } for a in agents]
+    }
+
+
+@app.delete("/agent/task/{task_id}")
+async def cancel_task(task_id: str):
+    """Cancel a pending or running task"""
+    if not state.initialized:
+        raise HTTPException(status_code=503, detail="System not initialized")
+    
+    success = state.orchestrator.cancel_task(task_id)
+    
+    if not success:
+        raise HTTPException(status_code=400, detail=f"Cannot cancel task {task_id}")
+    
+    return {
+        "status": "success",
+        "message": f"Task {task_id} cancelled"
+    }
+
+
+# ============================================================================
+# System Endpoints
+# ============================================================================
+
+@app.get("/system/stats", response_model=SystemStatsResponse)
+async def system_stats():
+    """Get complete system statistics"""
+    if not state.initialized:
+        raise HTTPException(status_code=503, detail="System not initialized")
+    
+    return SystemStatsResponse(
+        status="success",
+        timestamp=datetime.utcnow().isoformat(),
+        sampler={
+            "num_steps": state.diffuser.config.num_steps,
+            "block_size": state.diffuser.config.block_size,
+            "num_blocks": state.diffuser.config.num_blocks,
+            "schedule": state.diffuser.config.schedule
+        },
+        memory=state.memory.stats(),
+        orchestrator=state.orchestrator.get_stats()
     )
 
 
-@app.get("/agents", response_model=List[AgentStatusResponse])
-async def list_agents():
-    """
-    Liste tous les agents et leur statut.
-    """
-    agents = []
-    for agent_id in app_state.orchestrator.agents:
-        status = app_state.orchestrator.get_agent_status(agent_id)
-        if status:
-            agents.append(AgentStatusResponse(**status))
-    return agents
-
-
-@app.get("/agents/{agent_id}", response_model=AgentStatusResponse)
-async def get_agent(agent_id: str):
-    """
-    Récupère le statut d'un agent spécifique.
-    """
-    status = app_state.orchestrator.get_agent_status(agent_id)
-    if not status:
-        raise HTTPException(status_code=404, detail="Agent not found")
-    return AgentStatusResponse(**status)
-
-
-# Démarrage
-
-def main():
-    """Point d'entrée pour le serveur."""
-    import uvicorn
-    uvicorn.run("api.server:app", host="0.0.0.0", port=8000, reload=False)
-
+# ============================================================================
+# Main Entry Point
+# ============================================================================
 
 if __name__ == "__main__":
-    main()
+    uvicorn.run(
+        "server:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=False,
+        log_level="info"
+    )
