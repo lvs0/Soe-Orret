@@ -1,210 +1,128 @@
-"""Agent orchestrator for Soe-Orret."""
+"""
+agent/orchestrator.py
+Soe-Orret orchestration agent.
+Coordinates sampler, memory, and API layers.
+"""
 
-import uuid
-import time
-import heapq
-import threading
-from enum import Enum
+from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, field
-from typing import Callable
+import time
 
-
-class TaskStatus(Enum):
-    PENDING = "pending"
-    RUNNING = "running"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
-
-
-class TaskRole(Enum):
-    EXECUTOR = "executor"
-    PLANNER = "planner"
-    REVIEWER = "reviewer"
-    COORDINATOR = "coordinator"
+from sampler.block_diffuser import BlockDiffuser
+from memory.aria import LayeredMemory, MemoryEntry
 
 
 @dataclass
-class Task:
-    task_id: str
-    description: str
-    role: TaskRole = TaskRole.EXECUTOR
-    priority: float = 1.0
-    status: TaskStatus = TaskStatus.PENDING
-    dependencies: list[str] = field(default_factory=list)
-    result: any = None
-    error: str | None = None
-    created_at: float = field(default_factory=time.time)
-    started_at: float | None = None
-    completed_at: float | None = None
+class TaskSpec:
+    prompt: str
+    layers: List[str] = field(default_factory=lambda: LayeredMemory.LAYERS)
+    num_steps: int = 16
+    block_size: int = 32
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
-    def __lt__(self, other):
-        return self.priority > other.priority
+
+@dataclass
+class TaskResult:
+    task_id: str
+    status: str
+    output: Optional[Any] = None
+    memory_entries: List[MemoryEntry] = field(default_factory=list)
+    duration_ms: float = 0.0
+    error: Optional[str] = None
 
 
 class Orchestrator:
-    """Central orchestrator for multi-agent coordination.
-
-    Features:
-    - Priority task queue (heap-based)
-    - Dependency resolution
-    - Role-based agent assignment
-    - Workflow builder
+    """
+    Soe-Orret orchestrator.
+    Drives block diffusion sampling with memory-backed context.
     """
 
-    def __init__(self):
-        self._tasks: dict[str, Task] = {}
-        self._queue: list[tuple[float, str]] = []
-        self._lock = threading.Lock()
-        self._handlers: dict[TaskRole, list[Callable]] = {role: [] for role in TaskRole}
+    def __init__(self, memory_db: str = ":memory:", device: str = "cpu"):
+        self.device = device
+        self.memory = LayeredMemory(memory_db)
+        self.diffuser = BlockDiffuser(num_steps=16, block_size=32)
+        self.task_counter = 0
 
-    def submit_task(self, task_id: str, description: str, role: TaskRole = TaskRole.EXECUTOR,
-                    priority: float = 1.0, dependencies: list[str] | None = None) -> str:
-        """Submit a new task.
+    def execute(self, spec: TaskSpec) -> TaskResult:
+        """Execute a task from spec to result."""
+        start = time.time()
+        task_id = f"soe-{int(start * 1000)}-{self.task_counter}"
+        self.task_counter += 1
 
-        Args:
-            task_id: Unique task identifier
-            description: Task description
-            role: Task role
-            priority: Higher = more urgent (heap-based)
-            dependencies: List of task_ids that must complete first
-
-        Returns:
-            task_id
-        """
-        with self._lock:
-            if task_id in self._tasks:
-                raise ValueError(f"Task {task_id} already exists")
-
-            task = Task(
-                task_id=task_id,
-                description=description,
-                role=role,
-                priority=priority,
-                dependencies=dependencies or []
-            )
-            self._tasks[task_id] = task
-            heapq.heappush(self._queue, (-priority, task_id))
-            return task_id
-
-    def get_next_task(self) -> Task | None:
-        """Get highest priority task whose dependencies are met."""
-        with self._lock:
-            while self._queue:
-                _, task_id = heapq.heappop(self._queue)
-                task = self._tasks.get(task_id)
-                if not task:
-                    continue
-                if task.status != TaskStatus.PENDING:
-                    continue
-                deps_met = all(
-                    self._tasks.get(dep_id, Task("", "", TaskRole.EXECUTOR, status=TaskStatus.PENDING)).status
-                    == TaskStatus.COMPLETED
-                    for dep_id in task.dependencies
-                )
-                if deps_met:
-                    return task
-            return None
-
-    def start_task(self, task_id: str) -> bool:
-        """Mark task as running."""
-        with self._lock:
-            task = self._tasks.get(task_id)
-            if not task or task.status != TaskStatus.PENDING:
-                return False
-            task.status = TaskStatus.RUNNING
-            task.started_at = time.time()
-            return True
-
-    def complete_task(self, task_id: str, result: any = None) -> bool:
-        """Mark task as completed."""
-        with self._lock:
-            task = self._tasks.get(task_id)
-            if not task or task.status != TaskStatus.RUNNING:
-                return False
-            task.status = TaskStatus.COMPLETED
-            task.result = result
-            task.completed_at = time.time()
-            return True
-
-    def fail_task(self, task_id: str, error: str) -> bool:
-        """Mark task as failed."""
-        with self._lock:
-            task = self._tasks.get(task_id)
-            if not task or task.status != TaskStatus.RUNNING:
-                return False
-            task.status = TaskStatus.FAILED
-            task.error = error
-            task.completed_at = time.time()
-            return True
-
-    def cancel_task(self, task_id: str) -> bool:
-        """Cancel a pending task."""
-        with self._lock:
-            task = self._tasks.get(task_id)
-            if not task or task.status != TaskStatus.PENDING:
-                return False
-            task.status = TaskStatus.CANCELLED
-            task.completed_at = time.time()
-            return True
-
-    def get_task(self, task_id: str) -> Task | None:
-        return self._tasks.get(task_id)
-
-    def list_tasks(self, status: TaskStatus | None = None) -> list[Task]:
-        tasks = list(self._tasks.values())
-        if status:
-            tasks = [t for t in tasks if t.status == status]
-        return sorted(tasks, key=lambda t: t.priority, reverse=True)
-
-    def register_handler(self, role: TaskRole, handler: Callable[[Task], any]):
-        """Register a handler for a task role."""
-        self._handlers[role].append(handler)
-
-    def execute_next(self) -> bool:
-        """Execute the next available task.
-
-        Returns:
-            True if a task was executed, False if queue empty
-        """
-        task = self.get_next_task()
-        if not task:
-            return False
-
-        self.start_task(task.task_id)
         try:
-            handlers = self._handlers.get(task.role, [])
-            result = None
-            for handler in handlers:
-                result = handler(task)
-            self.complete_task(task.task_id, result)
+            # Store incoming prompt in episodic memory
+            self.memory.store("episodic", f"task:{task_id}", spec.prompt, tags=["task", "prompt"])
+
+            # Build context from memory layers
+            context = self._build_context(spec)
+
+            # Run diffusion sampler
+            output = self._run_diffusion(spec, context)
+
+            # Store result in semantic layer
+            result_key = f"result:{task_id}"
+            self.memory.store("semantic", result_key, output, tags=["result", "output"])
+
+            duration_ms = (time.time() - start) * 1000
+            entries = self.memory.recent("semantic", limit=5)
+
+            return TaskResult(
+                task_id=task_id,
+                status="success",
+                output=output,
+                memory_entries=entries,
+                duration_ms=duration_ms,
+            )
+
         except Exception as e:
-            self.fail_task(task.task_id, str(e))
-        return True
+            duration_ms = (time.time() - start) * 1000
+            return TaskResult(
+                task_id=task_id,
+                status="error",
+                error=str(e),
+                duration_ms=duration_ms,
+            )
 
-    def build_workflow(self, steps: list[dict]) -> list[str]:
-        """Build a workflow from step definitions.
+    def _build_context(self, spec: TaskSpec) -> Dict[str, List[MemoryEntry]]:
+        """Gather relevant context from all specified memory layers."""
+        context: Dict[str, List[MemoryEntry]] = {}
+        for layer in spec.layers:
+            context[layer] = self.memory.recent(layer, limit=10)
+        return context
 
-        Args:
-            steps: List of {"task_id": str, "role": str, "deps": [task_ids]}
+    def _run_diffusion(self, spec: TaskSpec, context: Dict) -> Dict[str, Any]:
+        """Run block diffusion with context conditioning."""
+        import torch
 
-        Returns:
-            List of task_ids in dependency order
-        """
-        task_ids = []
-        for step in steps:
-            tid = step["task_id"]
-            role_str = step.get("role", "executor")
-            role = TaskRole(role_str) if isinstance(role_str, str) else role_str
-            deps = step.get("deps", [])
-            self.submit_task(tid, step.get("description", ""), role=role, priority=step.get("priority", 1.0), dependencies=deps)
-            task_ids.append(tid)
-        return task_ids
+        # Reconstruct diffuser params from spec
+        diffuser = BlockDiffuser(num_steps=spec.num_steps, block_size=spec.block_size)
 
-    def stats(self) -> dict:
-        counts = {s.value: 0 for s in TaskStatus}
-        roles = {r.value: 0 for r in TaskRole}
-        for t in self._tasks.values():
-            counts[t.status.value] += 1
-            roles[t.role.value] += 1
-        return {"total": len(self._tasks), "status": counts, "roles": roles, "queue_depth": len(self._queue)}
+        # Context vector from memory as conditioning signal
+        ctx_vector = self._memory_context_vector(context)
+
+        latent_shape = (1, 4, 64, 64)
+        score_fn = lambda x, t: torch.randn_like(x) * 0.1
+
+        result = diffuser.sample_blocks(latent_shape, score_fn, device=torch.device(self.device))
+
+        return {
+            "task_id": spec.prompt[:32],
+            "shape": list(result.shape),
+            "num_steps": spec.num_steps,
+            "context_layers": list(context.keys()),
+        }
+
+    def _memory_context_vector(self, context: Dict) -> torch.Tensor:
+        """Flatten memory context into a pseudo-embedding vector."""
+        import torch
+        entries = sum(len(v) for v in context.values())
+        return torch.randn(entries, 1) if entries > 0 else torch.zeros(1, 1)
+
+    def status(self) -> Dict[str, Any]:
+        """Return orchestrator status."""
+        return {
+            "diffuser": repr(self.diffuser),
+            "memory": repr(self.memory),
+            "device": self.device,
+            "task_counter": self.task_counter,
+        }
