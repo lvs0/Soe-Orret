@@ -1,5 +1,3 @@
-"""Soe-Orret API Module - FastAPI REST server"""
+from api.server import app
 
-from .server import app, SoeOrretState
-
-__all__ = ["app", "SoeOrretState"]
+__all__ = ["app"]

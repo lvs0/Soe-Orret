@@ -1,5 +1,3 @@
-"""Soe-Orret Memory Module - Aria 5-layer hierarchical memory"""
+from memory.aria import AriaMemory, MemoryEntry
 
-from .aria import AriaMemory, AriaMemoryLayer, MemoryEntry
-
-__all__ = ["AriaMemory", "AriaMemoryLayer", "MemoryEntry"]
+__all__ = ["AriaMemory", "MemoryEntry"]

@@ -1,5 +1,3 @@
-"""Soe-Orret Agent Module - Orchestration and task management"""
+from agent.orchestrator import Orchestrator, Task, TaskRole, TaskStatus
 
-from .orchestrator import Orchestrator, WorkflowBuilder, Agent, Task, AgentRole, TaskStatus
-
-__all__ = ["Orchestrator", "WorkflowBuilder", "Agent", "Task", "AgentRole", "TaskStatus"]
+__all__ = ["Orchestrator", "Task", "TaskRole", "TaskStatus"]

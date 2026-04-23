@@ -1,5 +1,3 @@
-"""Soe-Orret Sampler Module - Block-based diffusion sampling"""
+from sampler.block_diffuser import BlockDiffuser, SamplerConfig
 
-from .block_diffuser import BlockDiffuser, DiffusionConfig, SimpleNoiseModel
-
-__all__ = ["BlockDiffuser", "DiffusionConfig", "SimpleNoiseModel"]
+__all__ = ["BlockDiffuser", "SamplerConfig"]

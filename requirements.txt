@@ -1,17 +1,5 @@
-# Soe-Orret Requirements
-# Core dependencies for the Soe-Orret system
-
-# Deep Learning & Sampling
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
 torch>=2.0.0
 numpy>=1.24.0
-
-# API Server
-fastapi>=0.104.0
-uvicorn[standard]>=0.24.0
-pydantic>=2.5.0
-
-# Data & Utils
-python-multipart>=0.0.6
-
-# Optional: for production deployments
-# gunicorn>=21.2.0
+pydantic>=2.0.0
