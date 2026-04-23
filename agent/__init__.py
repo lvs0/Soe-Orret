@@ -1,3 +1,3 @@
-from agent.orchestrator import Orchestrator, Task, TaskRole, TaskStatus
+from agent.orchestrator import Orchestrator, TaskSpec, TaskResult
 
-__all__ = ["Orchestrator", "Task", "TaskRole", "TaskStatus"]
+__all__ = ["Orchestrator", "TaskSpec", "TaskResult"]

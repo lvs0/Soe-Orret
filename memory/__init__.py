@@ -1,3 +1,3 @@
-from memory.aria import AriaMemory, MemoryEntry
+from memory.aria import LayeredMemory, MemoryEntry
 
-__all__ = ["AriaMemory", "MemoryEntry"]
+__all__ = ["LayeredMemory", "MemoryEntry"]

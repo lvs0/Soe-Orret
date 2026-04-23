@@ -1,3 +1,3 @@
-from sampler.block_diffuser import BlockDiffuser, SamplerConfig
+from sampler.block_diffuser import BlockDiffuser
 
-__all__ = ["BlockDiffuser", "SamplerConfig"]
+__all__ = ["BlockDiffuser"]

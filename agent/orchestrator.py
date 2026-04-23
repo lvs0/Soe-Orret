@@ -7,6 +7,7 @@ Coordinates sampler, memory, and API layers.
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, field
 import time
+import torch
 
 from sampler.block_diffuser import BlockDiffuser
 from memory.aria import LayeredMemory, MemoryEntry
@@ -92,8 +93,6 @@ class Orchestrator:
 
     def _run_diffusion(self, spec: TaskSpec, context: Dict) -> Dict[str, Any]:
         """Run block diffusion with context conditioning."""
-        import torch
-
         # Reconstruct diffuser params from spec
         diffuser = BlockDiffuser(num_steps=spec.num_steps, block_size=spec.block_size)
 
@@ -114,7 +113,6 @@ class Orchestrator:
 
     def _memory_context_vector(self, context: Dict) -> torch.Tensor:
         """Flatten memory context into a pseudo-embedding vector."""
-        import torch
         entries = sum(len(v) for v in context.values())
         return torch.randn(entries, 1) if entries > 0 else torch.zeros(1, 1)
 
