@@ -1,100 +1,91 @@
 # Soe-Orret
 
-A modular AI system featuring block-based diffusion sampling, hierarchical memory, and agent orchestration.
+A modular agent ecosystem with diffusion-based sampling and hierarchical memory.
 
-## Structure
+## Architecture
 
 ```
 soe-orret/
-├── sampler/           # Block diffusion sampler (16 steps)
-│   ├── __init__.py
+├── sampler/          # Block-based diffusion sampler
 │   └── block_diffuser.py
-├── memory/            # Aria 5-layer memory system
-│   ├── __init__.py
+├── memory/           # 5-layer SQLite memory system
 │   └── aria.py
-├── agent/             # Agent orchestration
-│   ├── __init__.py
+├── agent/            # Agent orchestration
 │   └── orchestrator.py
-├── api/               # FastAPI REST server
-│   ├── __init__.py
-│   └── server.py
-├── requirements.txt
-└── README.md
+└── api/              # RESTful API server
+    └── server.py
 ```
 
 ## Components
 
-### Sampler (`sampler/block_diffuser.py`)
-Block-based diffusion sampler with configurable 16-step schedule.
-- DDPM-style forward/reverse diffusion
-- Block-wise processing for efficiency
-- Multiple beta schedules (linear, cosine, quadratic)
+### Block Diffuser (`sampler/block_diffuser.py`)
+- 16-step DDPM-like diffusion process
+- Block-based processing for memory efficiency
+- Configurable noise schedules and sampling
 
-### Memory (`memory/aria.py`)
-5-layer hierarchical SQLite memory system:
-- Layer 0: Working memory (immediate)
-- Layer 1: Short-term (session-level)
-- Layer 2: Medium-term (day-level)
-- Layer 3: Long-term (week/month)
-- Layer 4: Archive (permanent)
+### Aria Memory (`memory/aria.py`)
+5-layer hierarchical memory system:
+- **L1**: Working memory (1 hour TTL)
+- **L2**: Short-term memory (24 hours TTL)
+- **L3**: Medium-term memory (7 days TTL)
+- **L4**: Long-term memory (90 days TTL)
+- **L5**: Archive (permanent)
 
-Features automatic promotion/demotion based on access patterns.
-
-### Agent (`agent/orchestrator.py`)
-Central orchestrator for multi-agent coordination:
-- Task queue with priority scheduling
+### Orchestrator (`agent/orchestrator.py`)
+- Agent lifecycle management
+- Task distribution and scheduling
 - Dependency resolution
-- Role-based agent assignment
-- Workflow builder
+- Health monitoring
 
-### API (`api/server.py`)
-FastAPI REST API exposing all components:
-- `/sampler/sample` - Generate diffusion samples
-- `/memory/*` - Store, retrieve, query memories
-- `/agent/*` - Submit tasks, manage workflows
-- `/system/stats` - System statistics
+### API Server (`api/server.py`)
+- RESTful endpoints for all components
+- CORS enabled
+- Health checks and status monitoring
 
-## Installation
+## Quick Start
 
-```bash
-pip install -r requirements.txt
+```python
+# Example: Using the diffuser
+from sampler.block_diffuser import BlockDiffuser, DiffusionConfig
+
+config = DiffusionConfig(num_steps=16)
+diffuser = BlockDiffuser(config)
+
+# Example: Using memory
+from memory.aria import AriaMemory
+
+memory = AriaMemory("./memory.db")
+memory.store(1, "key", {"data": "value"})
+entry = memory.retrieve(1, "key")
+
+# Example: Using orchestrator
+from agent.orchestrator import Orchestrator
+
+orch = Orchestrator()
+orch.start()
+agent = orch.register_agent("Worker", "processor")
+task = orch.create_task("Process data", priority=3)
+
+# Example: Starting API server
+from api.server import SoeOrretServer
+
+server = SoeOrretServer()
+server.set_orchestrator(orch)
+server.set_memory(memory)
+server.start()
 ```
 
-## Usage
+## API Endpoints
 
-### Run API Server
-```bash
-cd api
-python server.py
-```
-
-Or with uvicorn directly:
-```bash
-uvicorn api.server:app --host 0.0.0.0 --port 8000
-```
-
-### API Examples
-
-**Generate samples:**
-```bash
-curl -X POST http://localhost:8000/sampler/sample \
-  -H "Content-Type: application/json" \
-  -d '{"batch_size": 2, "height": 64, "width": 64, "num_steps": 16}'
-```
-
-**Store memory:**
-```bash
-curl -X POST http://localhost:8000/memory/store \
-  -H "Content-Type: application/json" \
-  -d '{"key": "user_pref", "content": "Dark mode preferred", "layer": 1, "priority": 0.9}'
-```
-
-**Submit task:**
-```bash
-curl -X POST http://localhost:8000/agent/task \
-  -H "Content-Type: application/json" \
-  -d '{"task_id": "task_1", "description": "Process data", "role": "executor", "priority": 1.5}'
-```
+- `GET /health` - Health check
+- `GET /status` - System status
+- `GET /agents` - List agents
+- `POST /agents` - Create agent
+- `GET /tasks` - List tasks
+- `POST /tasks` - Create task
+- `GET /memory` - Search memory
+- `POST /memory` - Store in memory
+- `POST /sample` - Generate sample
 
 ## License
 

@@ -1,126 +1,455 @@
 """
-agent/orchestrator.py
-Soe-Orret orchestration agent.
-Coordinates sampler, memory, and API layers.
+Agent Orchestrator - Central coordination module for agent operations
 """
 
-from typing import Dict, Any, Optional, List
+import asyncio
+import json
+import logging
+from typing import Dict, List, Optional, Callable, Any, Set
 from dataclasses import dataclass, field
-import time
-import torch
+from datetime import datetime
+from enum import Enum, auto
+import threading
+from queue import Queue
+import uuid
 
-from sampler.block_diffuser import BlockDiffuser
-from memory.aria import LayeredMemory, MemoryEntry
+
+class TaskStatus(Enum):
+    """Task execution status."""
+    PENDING = auto()
+    RUNNING = auto()
+    COMPLETED = auto()
+    FAILED = auto()
+    CANCELLED = auto()
+
+
+class AgentState(Enum):
+    """Agent lifecycle states."""
+    IDLE = auto()
+    BUSY = auto()
+    PAUSED = auto()
+    STOPPING = auto()
+    ERROR = auto()
 
 
 @dataclass
-class TaskSpec:
-    prompt: str
-    layers: List[str] = field(default_factory=lambda: LayeredMemory.LAYERS)
-    num_steps: int = 16
-    block_size: int = 32
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
-class TaskResult:
-    task_id: str
-    status: str
-    output: Optional[Any] = None
-    memory_entries: List[MemoryEntry] = field(default_factory=list)
-    duration_ms: float = 0.0
+class Task:
+    """A unit of work for an agent."""
+    id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
+    name: str = ""
+    description: str = ""
+    priority: int = 5  # 1-10, lower is higher priority
+    status: TaskStatus = TaskStatus.PENDING
+    agent_id: Optional[str] = None
+    created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    result: Any = None
     error: Optional[str] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    dependencies: List[str] = field(default_factory=list)
+
+
+@dataclass
+class Agent:
+    """Agent definition and state."""
+    id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
+    name: str = ""
+    role: str = ""
+    state: AgentState = AgentState.IDLE
+    capabilities: List[str] = field(default_factory=list)
+    current_task: Optional[str] = None
+    task_history: List[str] = field(default_factory=list)
+    created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    last_heartbeat: Optional[str] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 class Orchestrator:
     """
-    Soe-Orret orchestrator.
-    Drives block diffusion sampling with memory-backed context.
+    Central orchestrator for managing agents and tasks.
+    Handles task distribution, agent lifecycle, and coordination.
     """
-
-    def __init__(self, memory_db: str = ":memory:", device: str = "cpu"):
-        self.device = device
-        self.memory = LayeredMemory(memory_db)
-        self.diffuser = BlockDiffuser(num_steps=16, block_size=32)
-        self.task_counter = 0
-
-    def execute(self, spec: TaskSpec) -> TaskResult:
-        """Execute a task from spec to result."""
-        start = time.time()
-        task_id = f"soe-{int(start * 1000)}-{self.task_counter}"
-        self.task_counter += 1
-
+    
+    def __init__(self):
+        self.agents: Dict[str, Agent] = {}
+        self.tasks: Dict[str, Task] = {}
+        self.task_queue: Queue = Queue()
+        self._lock = threading.RLock()
+        self._running = False
+        self._scheduler_thread: Optional[threading.Thread] = None
+        self._handlers: Dict[str, Callable[[Task], Any]] = {}
+        self._callbacks: Dict[str, List[Callable[[Task], None]]] = {}
+        
+        logging.basicConfig(level=logging.INFO)
+        self.logger = logging.getLogger("Orchestrator")
+    
+    def register_agent(self, name: str, role: str, capabilities: List[str] = None,
+                       metadata: Dict[str, Any] = None) -> Agent:
+        """
+        Register a new agent with the orchestrator.
+        
+        Args:
+            name: Agent name
+            role: Agent role/description
+            capabilities: List of capability strings
+            metadata: Additional agent metadata
+            
+        Returns:
+            Created Agent instance
+        """
+        with self._lock:
+            agent = Agent(
+                name=name,
+                role=role,
+                capabilities=capabilities or [],
+                metadata=metadata or {}
+            )
+            self.agents[agent.id] = agent
+            self.logger.info(f"Registered agent {agent.id}: {name} ({role})")
+            return agent
+    
+    def unregister_agent(self, agent_id: str) -> bool:
+        """Unregister an agent."""
+        with self._lock:
+            if agent_id in self.agents:
+                agent = self.agents[agent_id]
+                if agent.state == AgentState.BUSY and agent.current_task:
+                    # Cancel current task
+                    self.cancel_task(agent.current_task)
+                del self.agents[agent_id]
+                self.logger.info(f"Unregistered agent {agent_id}")
+                return True
+            return False
+    
+    def create_task(self, name: str, description: str = "", priority: int = 5,
+                    metadata: Dict[str, Any] = None, 
+                    dependencies: List[str] = None) -> Task:
+        """
+        Create a new task.
+        
+        Args:
+            name: Task name
+            description: Task description
+            priority: Priority level (1-10, lower is higher)
+            metadata: Task metadata
+            dependencies: List of task IDs this task depends on
+            
+        Returns:
+            Created Task instance
+        """
+        with self._lock:
+            task = Task(
+                name=name,
+                description=description,
+                priority=priority,
+                metadata=metadata or {},
+                dependencies=dependencies or []
+            )
+            self.tasks[task.id] = task
+            self.task_queue.put(task.id)
+            self.logger.info(f"Created task {task.id}: {name} (priority {priority})")
+            return task
+    
+    def assign_task(self, task_id: str, agent_id: str) -> bool:
+        """Assign a task to a specific agent."""
+        with self._lock:
+            if task_id not in self.tasks or agent_id not in self.agents:
+                return False
+            
+            task = self.tasks[task_id]
+            agent = self.agents[agent_id]
+            
+            if agent.state != AgentState.IDLE:
+                return False
+            
+            task.agent_id = agent_id
+            task.status = TaskStatus.RUNNING
+            task.started_at = datetime.utcnow().isoformat()
+            
+            agent.state = AgentState.BUSY
+            agent.current_task = task_id
+            
+            self.logger.info(f"Assigned task {task_id} to agent {agent_id}")
+            return True
+    
+    def complete_task(self, task_id: str, result: Any = None) -> bool:
+        """Mark a task as completed."""
+        with self._lock:
+            if task_id not in self.tasks:
+                return False
+            
+            task = self.tasks[task_id]
+            task.status = TaskStatus.COMPLETED
+            task.result = result
+            task.completed_at = datetime.utcnow().isoformat()
+            
+            if task.agent_id:
+                agent = self.agents.get(task.agent_id)
+                if agent:
+                    agent.state = AgentState.IDLE
+                    agent.current_task = None
+                    agent.task_history.append(task_id)
+                    agent.last_heartbeat = datetime.utcnow().isoformat()
+            
+            # Trigger callbacks
+            self._trigger_callbacks(task)
+            
+            self.logger.info(f"Completed task {task_id}")
+            return True
+    
+    def fail_task(self, task_id: str, error: str) -> bool:
+        """Mark a task as failed."""
+        with self._lock:
+            if task_id not in self.tasks:
+                return False
+            
+            task = self.tasks[task_id]
+            task.status = TaskStatus.FAILED
+            task.error = error
+            task.completed_at = datetime.utcnow().isoformat()
+            
+            if task.agent_id:
+                agent = self.agents.get(task.agent_id)
+                if agent:
+                    agent.state = AgentState.ERROR
+                    agent.current_task = None
+            
+            self.logger.error(f"Task {task_id} failed: {error}")
+            return True
+    
+    def cancel_task(self, task_id: str) -> bool:
+        """Cancel a pending or running task."""
+        with self._lock:
+            if task_id not in self.tasks:
+                return False
+            
+            task = self.tasks[task_id]
+            task.status = TaskStatus.CANCELLED
+            task.completed_at = datetime.utcnow().isoformat()
+            
+            if task.agent_id:
+                agent = self.agents.get(task.agent_id)
+                if agent:
+                    agent.state = AgentState.IDLE
+                    agent.current_task = None
+            
+            self.logger.info(f"Cancelled task {task_id}")
+            return True
+    
+    def register_handler(self, task_type: str, handler: Callable[[Task], Any]):
+        """Register a handler function for a task type."""
+        self._handlers[task_type] = handler
+    
+    def on_task_complete(self, task_id: str, callback: Callable[[Task], None]):
+        """Register a callback for when a task completes."""
+        if task_id not in self._callbacks:
+            self._callbacks[task_id] = []
+        self._callbacks[task_id].append(callback)
+    
+    def _trigger_callbacks(self, task: Task):
+        """Trigger callbacks for a completed task."""
+        callbacks = self._callbacks.get(task.id, [])
+        for callback in callbacks:
+            try:
+                callback(task)
+            except Exception as e:
+                self.logger.error(f"Callback error for task {task.id}: {e}")
+    
+    def start(self):
+        """Start the orchestrator scheduler."""
+        if self._running:
+            return
+        
+        self._running = True
+        self._scheduler_thread = threading.Thread(target=self._scheduler_loop)
+        self._scheduler_thread.daemon = True
+        self._scheduler_thread.start()
+        self.logger.info("Orchestrator started")
+    
+    def stop(self):
+        """Stop the orchestrator."""
+        self._running = False
+        if self._scheduler_thread:
+            self._scheduler_thread.join(timeout=5)
+        self.logger.info("Orchestrator stopped")
+    
+    def _scheduler_loop(self):
+        """Main scheduler loop for task distribution."""
+        while self._running:
+            try:
+                self._process_task_queue()
+                self._check_agent_health()
+                threading.Event().wait(1)  # 1 second polling interval
+            except Exception as e:
+                self.logger.error(f"Scheduler error: {e}")
+    
+    def _process_task_queue(self):
+        """Process pending tasks in the queue."""
+        # Get pending tasks sorted by priority
+        pending = [
+            t for t in self.tasks.values()
+            if t.status == TaskStatus.PENDING
+        ]
+        pending.sort(key=lambda t: t.priority)
+        
+        for task in pending:
+            # Check dependencies
+            deps_satisfied = all(
+                self.tasks.get(dep_id) and 
+                self.tasks[dep_id].status == TaskStatus.COMPLETED
+                for dep_id in task.dependencies
+            )
+            
+            if not deps_satisfied:
+                continue
+            
+            # Find available agent
+            available_agent = self._find_available_agent(task)
+            if available_agent:
+                self.assign_task(task.id, available_agent.id)
+                
+                # Execute if handler registered
+                task_type = task.metadata.get('type', 'default')
+                if task_type in self._handlers:
+                    threading.Thread(
+                        target=self._execute_task,
+                        args=(task.id, self._handlers[task_type])
+                    ).start()
+    
+    def _find_available_agent(self, task: Task) -> Optional[Agent]:
+        """Find an available agent for a task."""
+        required_caps = task.metadata.get('required_capabilities', [])
+        
+        for agent in self.agents.values():
+            if agent.state == AgentState.IDLE:
+                # Check capability match
+                if not required_caps or all(cap in agent.capabilities for cap in required_caps):
+                    return agent
+        return None
+    
+    def _execute_task(self, task_id: str, handler: Callable[[Task], Any]):
+        """Execute a task with the given handler."""
+        task = self.tasks.get(task_id)
+        if not task:
+            return
+        
         try:
-            # Store incoming prompt in episodic memory
-            self.memory.store("episodic", f"task:{task_id}", spec.prompt, tags=["task", "prompt"])
-
-            # Build context from memory layers
-            context = self._build_context(spec)
-
-            # Run diffusion sampler
-            output = self._run_diffusion(spec, context)
-
-            # Store result in semantic layer
-            result_key = f"result:{task_id}"
-            self.memory.store("semantic", result_key, output, tags=["result", "output"])
-
-            duration_ms = (time.time() - start) * 1000
-            entries = self.memory.recent("semantic", limit=5)
-
-            return TaskResult(
-                task_id=task_id,
-                status="success",
-                output=output,
-                memory_entries=entries,
-                duration_ms=duration_ms,
-            )
-
+            result = handler(task)
+            self.complete_task(task_id, result)
         except Exception as e:
-            duration_ms = (time.time() - start) * 1000
-            return TaskResult(
-                task_id=task_id,
-                status="error",
-                error=str(e),
-                duration_ms=duration_ms,
-            )
+            self.fail_task(task_id, str(e))
+    
+    def _check_agent_health(self):
+        """Check and update agent health status."""
+        now = datetime.utcnow()
+        for agent in self.agents.values():
+            if agent.last_heartbeat:
+                last = datetime.fromisoformat(agent.last_heartbeat)
+                # Mark as error if no heartbeat for 60 seconds while busy
+                if (now - last).seconds > 60 and agent.state == AgentState.BUSY:
+                    agent.state = AgentState.ERROR
+                    if agent.current_task:
+                        self.fail_task(agent.current_task, "Agent heartbeat timeout")
+    
+    def get_status(self) -> Dict[str, Any]:
+        """Get overall orchestrator status."""
+        with self._lock:
+            task_counts = {status.name: 0 for status in TaskStatus}
+            for task in self.tasks.values():
+                task_counts[task.status.name] += 1
+            
+            agent_counts = {state.name: 0 for state in AgentState}
+            for agent in self.agents.values():
+                agent_counts[agent.state.name] += 1
+            
+            return {
+                'agents': {
+                    'total': len(self.agents),
+                    'by_state': agent_counts,
+                    'details': [
+                        {
+                            'id': a.id,
+                            'name': a.name,
+                            'state': a.state.name,
+                            'current_task': a.current_task
+                        }
+                        for a in self.agents.values()
+                    ]
+                },
+                'tasks': {
+                    'total': len(self.tasks),
+                    'by_status': task_counts,
+                    'queue_size': self.task_queue.qsize()
+                },
+                'running': self._running
+            }
+    
+    def heartbeat(self, agent_id: str) -> bool:
+        """Receive heartbeat from an agent."""
+        with self._lock:
+            if agent_id not in self.agents:
+                return False
+            
+            agent = self.agents[agent_id]
+            agent.last_heartbeat = datetime.utcnow().isoformat()
+            
+            # Recover from error state on heartbeat
+            if agent.state == AgentState.ERROR:
+                agent.state = AgentState.IDLE
+            
+            return True
 
-    def _build_context(self, spec: TaskSpec) -> Dict[str, List[MemoryEntry]]:
-        """Gather relevant context from all specified memory layers."""
-        context: Dict[str, List[MemoryEntry]] = {}
-        for layer in spec.layers:
-            context[layer] = self.memory.recent(layer, limit=10)
-        return context
 
-    def _run_diffusion(self, spec: TaskSpec, context: Dict) -> Dict[str, Any]:
-        """Run block diffusion with context conditioning."""
-        # Reconstruct diffuser params from spec
-        diffuser = BlockDiffuser(num_steps=spec.num_steps, block_size=spec.block_size)
+# Example task handlers
+def example_handler(task: Task) -> Dict[str, Any]:
+    """Example task handler that simulates work."""
+    import time
+    time.sleep(0.5)  # Simulate work
+    return {'processed': True, 'task_name': task.name}
 
-        # Context vector from memory as conditioning signal
-        ctx_vector = self._memory_context_vector(context)
 
-        latent_shape = (1, 4, 64, 64)
-        score_fn = lambda x, t: torch.randn_like(x) * 0.1
+def analysis_handler(task: Task) -> Dict[str, Any]:
+    """Example analysis task handler."""
+    data = task.metadata.get('data', [])
+    return {
+        'count': len(data),
+        'sum': sum(data) if data else 0,
+        'average': sum(data) / len(data) if data else 0
+    }
 
-        result = diffuser.sample_blocks(latent_shape, score_fn, device=torch.device(self.device))
 
-        return {
-            "task_id": spec.prompt[:32],
-            "shape": list(result.shape),
-            "num_steps": spec.num_steps,
-            "context_layers": list(context.keys()),
-        }
-
-    def _memory_context_vector(self, context: Dict) -> torch.Tensor:
-        """Flatten memory context into a pseudo-embedding vector."""
-        entries = sum(len(v) for v in context.values())
-        return torch.randn(entries, 1) if entries > 0 else torch.zeros(1, 1)
-
-    def status(self) -> Dict[str, Any]:
-        """Return orchestrator status."""
-        return {
-            "diffuser": repr(self.diffuser),
-            "memory": repr(self.memory),
-            "device": self.device,
-            "task_counter": self.task_counter,
-        }
+if __name__ == "__main__":
+    # Example usage
+    orch = Orchestrator()
+    
+    # Register handlers
+    orch.register_handler('default', example_handler)
+    orch.register_handler('analysis', analysis_handler)
+    
+    # Register agents
+    agent1 = orch.register_agent("Worker-1", "general_worker", ['compute', 'io'])
+    agent2 = orch.register_agent("Analyzer", "data_analyzer", ['compute', 'analysis'])
+    
+    # Start orchestrator
+    orch.start()
+    
+    # Create tasks
+    task1 = orch.create_task("Process data", "Process incoming data batch", priority=3,
+                             metadata={'type': 'default'})
+    task2 = orch.create_task("Analyze metrics", "Analyze system metrics", priority=2,
+                             metadata={'type': 'analysis', 'data': [1, 2, 3, 4, 5]})
+    task3 = orch.create_task("Generate report", "Generate summary report", priority=5,
+                             metadata={'type': 'default'},
+                             dependencies=[task1.id, task2.id])
+    
+    # Let scheduler work
+    import time
+    time.sleep(3)
+    
+    # Check status
+    status = orch.get_status()
+    print(json.dumps(status, indent=2))
+    
+    # Stop
+    orch.stop()
