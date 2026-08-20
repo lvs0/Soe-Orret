@@ -69,3 +69,4 @@ soe/models/**/*.pth
 .swarm/
 .mcp.json
 CLAUDE.md
+soe/models/base/
