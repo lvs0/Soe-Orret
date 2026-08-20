@@ -1,0 +1,1556 @@
+SOE-ORRET dLLM — Guide Complet de
+Construction
+Intelligence Artificielle Symbiotique · Fedora Linux · 2026
+“Ce qui est maintenant prouvé n’était autrefois qu’imaginé.” — William Blake
+
+Ce que ce guide construit
+Un vrai modèle d’IA qui t’appartient — pas un wrapper d’API.
+SOE-Orret est un dLLM (Diffusion Language Model) basé sur Qwen2.5-7B converti via
+A2D, avec mémoire hiérarchique, agent autonome RAG, et autocritique intégrée.
+
+PARTIE 0 — Philosophie et Architecture
+0.1 Pourquoi un dLLM et pas un LLM classique
+Tous les LLMs actuels sont autoregressifs (AR) : ils génèrent les tokens un par un, de
+gauche à droite. C’est comme écrire une phrase sans jamais pouvoir revenir en arrière.
+Problèmes fondamentaux de l’AR :
+Génération séquentielle impossible à paralléliser
+Le Reversal Curse : incapacité à raisonner en sens inverse
+Left-to-right bias : chaque token conditionné sur le passé uniquement
+Pas de révision possible après génération
+Un dLLM fonctionne différemment. Il commence avec une séquence masquée et
+débruite progressivement en remplissant tous les tokens en parallèle :
+Étape 0 : [MASK][MASK][MASK][MASK][MASK][MASK][MASK][MASK]
+Étape 1 : [MASK] suis [MASK][MASK] assistant[MASK][MASK][MASK]
+Étape 2 : Je
+
+suis [MASK] bon
+
+assistant[MASK] SOE [MASK]
+
+Étape 3 : Je
+
+suis un
+
+bon
+
+assistant,
+
+SOE Orret.
+
+Avantages fondamentaux :
+Contexte bidirectionnel : chaque token voit TOUS les autres (passé et futur)
+Génération parallèle : tous les tokens d’un bloc générés simultanément
+Révision possible : tokens peu confiants re-maskés et regénérés
+Résout le Reversal Curse : LLaDA 8B (2025) surpasse GPT-4o sur les tâches
+inverses
+
+0.2 Pourquoi A2D et pas from-scratch
+Entraîner un LLM from scratch coûte des millions. La conversion A2D (Autoregressiveto-Diffusion) transforme un modèle AR existant en dLLM via continued pretraining en
+préservant tout le savoir déjà appris.
+La recette SCP (Simple Continual Pretraining) de RND1/Fast-dLLM v2 (2025) :
+1. Partir d’un checkpoint AR fort (Qwen2.5-7B)
+2. Remplacer le masque causal par un masque bidirectionnel
+3. Continuer l’entraînement avec l’objectif de démasquage MDLM
+4. Learning rates différenciés : élevé pour attention, bas pour FFN (évite le catastrophic
+forgetting)
+Fast-dLLM v2 a adapté Qwen2.5-7B en ~12h sur 64 A100s. Avec Google Colab Pro
+(A100), ça prend 6-15h selon la taille du dataset.
+
+0.3 Architecture SOE-Orret — Vue d’ensemble
+┌─────────────────────────────────────────────────────────────────┐
+│
+
+SOE-ORRET ARCHITECTURE
+
+│
+
+├─────────────────────────────────────────────────────────────────┤
+│
+
+│
+
+│
+
+┌──────────────┐
+
+│
+
+│
+
+│
+
+└──────────────┘
+
+┌──────────────────────────────────────┐
+
+USER INPUT │───>│
+
+│
+
+│
+
+│
+
+│
+
+│
+
+└──────────────────────────────────────┘
+
+│
+
+│
+
+ORCHESTRATEUR ORRET
+
+│
+
+(CLAW-PRIME / Agent Principal)
+
+│
+
+│
+
+│
+
+┌───────────────────────┼───────────────────────┐ │
+
+│
+
+v
+
+v
+
+│
+v │
+
+│
+
+┌────────────────────┐
+
+┌──────────────────┐
+
+┌──────────────┐│
+
+│
+
+│
+
+│
+
+│
+
+│
+
+│ OUTILS RAG
+
+││
+
+│
+
+│
+
+│
+
+│
+
+│
+
+│
+
+││
+
+│
+
+│ L5 World Model
+
+│
+
+│ Qwen2.5-7B-dLLM
+
+│
+
+│ Web Search
+
+││
+
+│
+
+│ L4 Procedural
+
+│
+
+│ Block Diffusion
+
+│ Code Exec
+
+││
+
+│
+
+│ L3 Semantic
+
+│
+
+│ BD3-LM style
+
+│
+
+│ File System
+
+││
+
+│
+
+│ L2 Episodic
+
+│
+
+│ 32-token blocks
+
+│
+
+│ POLYGONE P2P ││
+
+│
+
+│ L1 Working (RAM)
+
+│
+
+│ ~16 steps
+
+│
+
+│ looplib
+
+│
+
+└────────────────────┘
+
+MEMOIRE (ARIA)
+
+MOTEUR dLLM
+
+│
+
+└──────────────────┘
+
+││
+
+└──────────────┘│
+
+│
+
+│
+
+│
+
+│
+
+┌───────────────┴───────────────┐
+
+│
+
+│
+
+v
+
+│
+
+│
+
+┌──────────────────────┐
+
+┌──────────────────────┐
+
+│
+
+│
+
+│
+
+MODULE REFLEXION
+
+│
+
+│ AUTOCRITIQUE MULTI-
+
+│
+
+│
+
+│
+
+│
+
+(self-critique)
+
+│
+
+│ AGENT
+
+│
+
+│
+
+│
+
+│
+
+Detects incoherence │
+
+│ Challenger + Juge
+
+│
+
+│
+
+│
+
+└──────────────────────┘
+
+└──────────────────────┘
+
+│
+
+v
+
+└─────────────────────────────────────────────────────────────────┘
+
+PARTIE 1 — Préparation Fedora
+1.1 Mise à jour système complète
+# Mise à jour
+sudo dnf upgrade --refresh -y
+# RPM Fusion (drivers et codecs)
+sudo dnf install -y \
+
+https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch
+
+https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).
+# Outils de développement
+sudo dnf groupinstall -y "Development Tools"
+sudo dnf install -y \
+python3 python3-pip python3-venv python3-devel \
+git git-lfs curl wget htop \
+cmake ninja-build \
+gcc gcc-c++ clang \
+openssl-devel libffi-devel bzip2-devel \
+tmux neovim \
+rsync unzip jq
+
+echo "Systeme de base pret"
+
+1.2 Python via pyenv (recommandé)
+# Installer pyenv
+curl https://pyenv.run | bash
+# Ajouter au .bashrc
+cat >> ~/.bashrc << 'EOF'
+export PYENV_ROOT="$HOME/.pyenv"
+[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
+eval "$(pyenv init -)"
+eval "$(pyenv virtualenv-init -)"
+EOF
+source ~/.bashrc
+# Python 3.11.9
+pyenv install 3.11.9
+pyenv global 3.11.9
+python --version
+
+# Python 3.11.9
+
+1.3 Note hardware — ThinkPad X250
+Le X250 (i5-5300U) n’a pas de GPU NVIDIA. La strategie est :
+Entraînement : Google Colab Pro (GPU NVIDIA A100/T4)
+Inference locale : GGUF quantisé via llama.cpp/Ollama (~4-6 tok/s)
+# Compiler llama.cpp avec optimisations AVX2 (disponible sur i5-5300U)
+cd ~
+git clone https://github.com/ggerganov/llama.cpp
+cd llama.cpp
+cmake -B build -DLLAMA_AVX2=ON -DLLAMA_F16C=ON -DLLAMA_FMA=ON
+cmake --build build --config Release -j$(nproc)
+sudo ln -sf ~/llama.cpp/build/bin/llama-cli /usr/local/bin/llama
+echo "llama.cpp compile avec AVX2"
+
+1.4 Structure des dossiers SOE
+
+mkdir -p ~/soe/{models/{base,converted,gguf,checkpoints},training/{datasets,scripts,configs,l
+
+cat > ~/soe/.soe_state.json << 'EOF'
+{
+"version": "0.1.0",
+"phase": "setup",
+"model": {
+"base": "Qwen/Qwen2.5-7B-Instruct",
+"type": "AR",
+"converted": false,
+"gguf_path": null
+},
+"training": {
+"status": "pending",
+"steps_completed": 0,
+"target_steps": 6000
+}
+}
+EOF
+echo "Structure SOE creee"
+
+1.5 Environnement Python SOE
+cd ~/soe
+python -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip setuptools wheel
+# Core ML (CPU-only pour inference locale)
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+# Transformers et HuggingFace
+pip install transformers>=4.47.0 tokenizers datasets accelerate peft trl safetensors
+# Inference
+pip install llama-cpp-python ollama openai
+# Memoire et vectorstore
+pip install faiss-cpu sentence-transformers chromadb
+# RAG et web
+pip install duckduckgo-search trafilatura beautifulsoup4 httpx aiohttp
+# API
+pip install fastapi uvicorn pydantic
+
+# Utilitaires
+pip install zstandard rich typer loguru python-dotenv
+pip freeze > ~/soe/requirements.txt
+echo "Environnement Python pret"
+
+PARTIE 2 — Modèle de base : Qwen2.5-7B
+2.1 Pourquoi Qwen2.5-7B-Instruct
+Comparaison des options :
+RAM GGUF
+
+Conversion
+
+X250
+
+Q4
+
+A2D
+
+tok/s
+
+Qwen2.5-1.5B
+
+~1.0GB
+
+Prouvee
+
+~15
+
+Alternatif RAM
+
+Qwen2.5-7B
+
+~4.5GB
+
+Prouvee
+
+~4-6
+
+RECOMMANDE
+
+Qwen2.5-14B
+
+~8.5GB
+
+Faisable
+
+~2
+
+Si 16GB RAM
+
+~6GB MoE
+
+RND1 prouvee
+
+~3
+
+Alternatif
+
+Modèle
+
+Qwen330BA3B
+
+Raisons du choix 7B :
+Fast-dLLM v2 (2025) l’a adapté avec succès en dLLM de bloc
+4.5GB GGUF Q4_K_M tourne sur X250 avec 8GB RAM
+Excellentes performances code et raisonnement
+Bonne fluidité en français
+
+2.2 Téléchargement
+source ~/soe/.venv/bin/activate
+pip install huggingface-hub
+python3 << 'PY'
+from huggingface_hub import snapshot_download
+
+Choix
+
+import os
+print("Telechargement de Qwen2.5-7B-Instruct...")
+snapshot_download(
+repo_id="Qwen/Qwen2.5-7B-Instruct",
+local_dir=os.path.expanduser("~/soe/models/base/qwen2.5-7b-instruct"),
+ignore_patterns=["*.bin"],
+)
+print("Modele telecharge")
+PY
+
+PARTIE 3 — Conversion A2D : AR vers dLLM
+3.1 Theorie — MDLM et Block Diffusion
+AR classique : predire le prochain token
+L_AR = -sum log P(x_t | x_1, ..., x_{t-1})
+
+MDLM : predire les tokens masques en parallele
+L_MDLM = -E_t E_mask [ sum_{i masques} log P(x_i | x_non_masques, t) ]
+
+Block Diffusion (BD3-LM) : divise la sequence en blocs de taille D. Chaque bloc est
+demasque en parallele, les blocs sont traites gauche-droite. C’est le meilleur compromis
+: generation parallele DANS chaque bloc, structure sequentielle ENTRE les blocs.
+Seul changement architectural : masque d’attention causal -> bidirectionnel. Les
+poids du modele restent identiques. C’est litteralement une ligne de code.
+
+3.2 Script de conversion A2D
+Sauvegarder comme ~/soe/training/scripts/a2d_convert.py :
+"""
+Conversion AR vers dLLM via Simple Continual Pretraining (SCP).
+Basé sur : RND1, Fast-dLLM v2, Tiny-A2D (2025).
+Usage sur Colab A100 :
+python a2d_convert.py \
+
+--model Qwen/Qwen2.5-7B-Instruct \
+--data ./train.jsonl \
+--output ./orret-dllm-7b \
+--steps 6000
+"""
+import os, json, math, argparse, time
+from pathlib import Path
+from functools import partial
+from typing import Optional, List
+import torch
+import torch.nn.functional as F
+from torch.utils.data import DataLoader, Dataset
+from transformers import (
+AutoModelForCausalLM, AutoTokenizer,
+get_cosine_schedule_with_warmup,
+)
+import numpy as np
+
+class A2DConfig:
+base_model: str = "Qwen/Qwen2.5-7B-Instruct"
+output_dir: str = "./orret-dllm-7b"
+block_size: int = 32
+total_steps: int = 6000
+warmup_steps: int = 300
+# Learning rates differencies (cle de SCP)
+lr_attention: float = 2e-5
+
+# Eleve pour adapter au bidir
+
+lr_ffn: float = 5e-6
+
+# Bas pour preserver la connaissance
+
+lr_embeddings: float = 1e-6
+
+# Tres bas
+
+batch_size: int = 8
+grad_accumulation: int = 8
+
+# Effective batch = 64
+
+max_seq_len: int = 2048
+mask_prob_min: float = 0.15
+mask_prob_max: float = 0.85
+log_every: int = 50
+save_every: int = 1000
+
+def patch_attention_to_bidirectional(model):
+"""
+CHANGEMENT CLE : masque causal -> bidirectionnel.
+C'est le seul changement architectural pour la conversion A2D.
+"""
+patched = 0
+for name, module in model.named_modules():
+
+if hasattr(module, 'is_causal'):
+module.is_causal = False
+patched += 1
+if hasattr(model.config, 'is_causal'):
+model.config.is_causal = False
+print(f"
+
+{patched} modules patches : causal -> bidirectionnel")
+
+return model
+
+class MDLMDataset(Dataset):
+"""Dataset MDLM depuis JSONL."""
+def __init__(self, data_path, tokenizer, max_seq_len=2048, mask_token_id=None):
+self.tokenizer = tokenizer
+self.max_seq_len = max_seq_len
+
+self.mask_token_id = mask_token_id or tokenizer.mask_token_id or tokenizer.pad_token_
+self.examples = self._load(data_path)
+print(f"
+
+Dataset: {len(self.examples)} exemples")
+
+def _load(self, path):
+examples = []
+with open(path) as f:
+for line in f:
+if not line.strip(): continue
+obj = json.loads(line)
+if 'messages' in obj:
+text = self.tokenizer.apply_chat_template(
+obj['messages'], tokenize=False, add_generation_prompt=False)
+elif 'text' in obj:
+text = obj['text']
+elif 'instruction' in obj:
+text = f"{obj['instruction']}\n{obj.get('output','')}"
+else:
+continue
+
+tokens = self.tokenizer.encode(text, truncation=True, max_length=self.max_seq
+if len(tokens) > 16:
+examples.append(tokens)
+return examples
+def __len__(self): return len(self.examples)
+def __getitem__(self, idx): return torch.tensor(self.examples[idx], dtype=torch.long)
+
+def collate_mdlm(batch, pad_id, mask_id, mask_min, mask_max, max_len):
+"""Collate avec masquage aleatoire pour MDLM."""
+L = min(max(len(x) for x in batch), max_len)
+input_ids = torch.full((len(batch), L), pad_id, dtype=torch.long)
+
+labels = torch.full((len(batch), L), -100, dtype=torch.long)
+attn_mask = torch.zeros(len(batch), L, dtype=torch.long)
+for i, tokens in enumerate(batch):
+tokens = tokens[:L]
+n = len(tokens)
+input_ids[i, :n] = tokens
+attn_mask[i, :n] = 1
+t = np.random.uniform(mask_min, mask_max)
+n_mask = max(1, int(n * t))
+mask_idx = np.random.choice(n, n_mask, replace=False)
+labels[i, mask_idx] = tokens[mask_idx]
+input_ids[i, mask_idx] = mask_id
+return {'input_ids': input_ids, 'attention_mask': attn_mask, 'labels': labels}
+
+def create_optimizer(model, cfg: A2DConfig):
+"""Optimiseur avec LR differencies par type de couche (cle de SCP)."""
+attn_params, ffn_params, emb_params, other_params = [], [], [], []
+for name, param in model.named_parameters():
+if not param.requires_grad: continue
+n = name.lower()
+if any(x in n for x in ['q_proj','k_proj','v_proj','o_proj','attn','attention']):
+attn_params.append(param)
+elif any(x in n for x in ['embed','wte','wpe']):
+emb_params.append(param)
+elif any(x in n for x in ['mlp','ffn','gate','up_proj','down_proj','fc']):
+ffn_params.append(param)
+else:
+other_params.append(param)
+for g_name, g_params, lr in [
+('attention', attn_params, cfg.lr_attention),
+('ffn', ffn_params, cfg.lr_ffn),
+('embeddings', emb_params, cfg.lr_embeddings),
+('other', other_params, cfg.lr_ffn),
+]:
+n_p = sum(p.numel() for p in g_params)
+print(f"
+
+{g_name:12s}: {n_p/1e6:.1f}M params @ lr={lr:.1e}")
+
+return torch.optim.AdamW([
+{'params': attn_params, 'lr': cfg.lr_attention},
+{'params': ffn_params,
+
+'lr': cfg.lr_ffn},
+
+{'params': emb_params,
+
+'lr': cfg.lr_embeddings},
+
+{'params': other_params,'lr': cfg.lr_ffn},
+
+], weight_decay=0.01, betas=(0.9, 0.95), eps=1e-8)
+
+def train_a2d(config: A2DConfig, data_path: str):
+"""Boucle d'entraînement A2D principale."""
+print("=" * 60)
+print("SOE-ORRET : CONVERSION AR -> dLLM (A2D)")
+print("=" * 60)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+dtype = torch.bfloat16 if config.__class__.__name__ else torch.float16
+if device.type == "cuda":
+dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
+else:
+dtype = torch.float32
+print(f"Device: {device} | Dtype: {dtype}")
+# Tokenizer
+tokenizer = AutoTokenizer.from_pretrained(config.base_model, trust_remote_code=True)
+if tokenizer.mask_token is None:
+tokenizer.add_special_tokens({'mask_token': '[MASK]'})
+# Modele AR
+print(f"Chargement: {config.base_model}")
+model = AutoModelForCausalLM.from_pretrained(
+config.base_model, torch_dtype=dtype,
+device_map="auto" if torch.cuda.is_available() else "cpu",
+trust_remote_code=True,
+)
+model.resize_token_embeddings(len(tokenizer))
+# PATCH : causal -> bidirectionnel
+model = patch_attention_to_bidirectional(model)
+# Dataset
+dataset = MDLMDataset(data_path, tokenizer, config.max_seq_len)
+collate = partial(collate_mdlm,
+pad_id=tokenizer.pad_token_id,
+mask_id=tokenizer.mask_token_id,
+mask_min=config.mask_prob_min,
+mask_max=config.mask_prob_max,
+max_len=config.max_seq_len,
+)
+loader = DataLoader(dataset, batch_size=config.batch_size,
+shuffle=True, collate_fn=collate, num_workers=2)
+# Optimiseur
+
+optimizer = create_optimizer(model, config)
+scheduler = get_cosine_schedule_with_warmup(
+optimizer, config.warmup_steps, config.total_steps)
+# Entraînement
+model.train()
+step = 0
+total_loss = 0.0
+data_iter = iter(loader)
+print(f"Debut entraînement ({config.total_steps} steps)...")
+while step < config.total_steps:
+try:
+batch = next(data_iter)
+except StopIteration:
+data_iter = iter(loader)
+batch = next(data_iter)
+input_ids = batch['input_ids'].to(device)
+attn_mask = batch['attention_mask'].to(device)
+labels = batch['labels'].to(device)
+outputs = model(input_ids=input_ids, attention_mask=attn_mask)
+logits = outputs.logits
+# Loss MDLM : cross-entropy sur tokens masques uniquement
+loss = F.cross_entropy(
+logits.view(-1, logits.size(-1)),
+labels.view(-1),
+ignore_index=-100,
+) / config.grad_accumulation
+loss.backward()
+total_loss += loss.item() * config.grad_accumulation
+if (step + 1) % config.grad_accumulation == 0:
+torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+optimizer.step()
+scheduler.step()
+optimizer.zero_grad()
+step += 1
+if step % config.log_every == 0:
+avg = total_loss / config.log_every
+lr = optimizer.param_groups[0]['lr']
+
+print(f"Step {step:5d}/{config.total_steps} | Loss: {avg:.4f} | LR: {lr:.2e}")
+total_loss = 0.0
+if step % config.save_every == 0:
+ckpt = Path(config.output_dir) / f"checkpoint-{step}"
+ckpt.mkdir(parents=True, exist_ok=True)
+model.save_pretrained(str(ckpt))
+tokenizer.save_pretrained(str(ckpt))
+print(f"Checkpoint: {ckpt}")
+# Sauvegarde finale
+Path(config.output_dir).mkdir(parents=True, exist_ok=True)
+model.save_pretrained(config.output_dir)
+tokenizer.save_pretrained(config.output_dir)
+with open(Path(config.output_dir) / "conversion_info.json", "w") as f:
+json.dump({
+"type": "A2D_SCP",
+"base_model": config.base_model,
+"steps": config.total_steps,
+"diffusion_method": "MDLM_BlockDiffusion",
+"block_size": config.block_size,
+}, f, indent=2)
+print("=" * 60)
+print("CONVERSION A2D TERMINEE")
+print(f"Modele sauvegarde: {config.output_dir}")
+print("=" * 60)
+
+if __name__ == "__main__":
+parser = argparse.ArgumentParser()
+parser.add_argument("--model", default="Qwen/Qwen2.5-7B-Instruct")
+parser.add_argument("--data", required=True)
+parser.add_argument("--output", default="./orret-dllm-7b")
+parser.add_argument("--steps", type=int, default=6000)
+args = parser.parse_args()
+cfg = A2DConfig()
+cfg.base_model = args.model
+cfg.output_dir = args.output
+cfg.total_steps = args.steps
+train_a2d(cfg, args.data)
+
+3.3 Notebook Google Colab
+
+# Cellule 1 : Verification GPU
+import torch
+print(f"GPU: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'ABSENT'}")
+# A100 40GB = ideal | T4 16GB = ok pour 7B avec gradient checkpointing
+# Cellule 2 : Installation
+# !pip install -q transformers accelerate datasets
+# !pip install -q flash-attn --no-build-isolation
+
+# A100 seulement
+
+# Cellule 3 : Telecharger le modele
+from huggingface_hub import snapshot_download
+snapshot_download("Qwen/Qwen2.5-7B-Instruct", local_dir="/content/qwen2.5-7b",
+ignore_patterns=["*.bin"])
+# Cellule 4 : Uploader ton dataset JSONL depuis local
+# from google.colab import files
+# files.upload()
+
+# selectionner train.jsonl
+
+# Cellule 5 : Lancer la conversion
+# Uploader a2d_convert.py, puis :
+# !python a2d_convert.py \
+#
+
+--model /content/qwen2.5-7b \
+
+#
+
+--data /content/train.jsonl \
+
+#
+
+--output /content/orret-dllm-7b \
+
+#
+
+--steps 6000
+
+# Cellule 6 : Export GGUF pour X250
+# !git clone https://github.com/ggerganov/llama.cpp /content/llama.cpp
+# !pip install -r /content/llama.cpp/requirements.txt
+# !python /content/llama.cpp/convert_hf_to_gguf.py /content/orret-dllm-7b \
+#
+
+--outfile /content/orret-dllm-7b-Q4_K_M.gguf \
+
+#
+
+--outtype q4_k_m
+
+# Cellule 7 : Sauvegarder sur Google Drive
+# from google.colab import drive
+# drive.mount('/content/drive')
+# !cp -r /content/orret-dllm-7b /content/drive/MyDrive/SOE/
+# !cp /content/orret-dllm-7b-Q4_K_M.gguf /content/drive/MyDrive/SOE/
+
+PARTIE 4 — Moteur d’inference dLLM
+# ~/soe/inference/engine/dllm_sampler.py
+"""
+
+Sampler Block Diffusion pour SOE-Orret.
+Algorithme :
+1. Encoder le prompt
+2. Initialiser la reponse avec [MASK]*N
+3. Pour N etapes : passer au modele bidirectionnel, fixer les tokens confiants
+4. Retourner la sequence finale
+"""
+import torch
+import torch.nn.functional as F
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from typing import Optional, List
+import time
+
+class BlockDiffusionSampler:
+def __init__(self, model_path: str, device: str = "auto",
+n_steps: int = 16, block_size: int = 32,
+confidence_threshold: float = 0.9):
+self.n_steps = n_steps
+self.block_size = block_size
+self.confidence_threshold = confidence_threshold
+self.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+self.mask_token_id = self.tokenizer.mask_token_id or self.tokenizer.pad_token_id
+if device == "auto":
+device = "cuda" if torch.cuda.is_available() else "cpu"
+self.device = device
+self.model = AutoModelForCausalLM.from_pretrained(
+model_path,
+torch_dtype=torch.bfloat16 if device == "cuda" else torch.float32,
+device_map=device, trust_remote_code=True,
+)
+self.model.eval()
+
+print(f"[Orret dLLM] Modele charge sur {device} | steps={n_steps} | block={block_size
+@torch.no_grad()
+def generate(self, prompt: str, max_new_tokens: int = 512,
+temperature: float = 0.7, top_p: float = 0.9,
+verbose: bool = False) -> str:
+t0 = time.time()
+prompt_ids = self.tokenizer.encode(prompt, return_tensors="pt").to(self.device)
+
+n_blocks = (max_new_tokens + self.block_size - 1) // self.block_size
+generated_ids = []
+for _ in range(n_blocks):
+
+existing = torch.tensor(generated_ids, dtype=torch.long).unsqueeze(0).to(self.dev
+if generated_ids else prompt_ids[:, :0]
+prefix = torch.cat([prompt_ids, existing], dim=1)
+block = self._generate_block(prefix, temperature, top_p, verbose)
+generated_ids.extend(block)
+if self.tokenizer.eos_token_id in block:
+eos = block.index(self.tokenizer.eos_token_id)
+generated_ids = generated_ids[:len(generated_ids)-len(block)+eos]
+break
+if verbose:
+t = time.time() - t0
+
+print(f"\n[{len(generated_ids)} tokens en {t:.1f}s = {len(generated_ids)/t:.1f} t
+return self.tokenizer.decode(generated_ids, skip_special_tokens=True)
+@torch.no_grad()
+def _generate_block(self, prompt_ids, temperature, top_p, verbose) -> List[int]:
+"""Generation d'un bloc de tokens via demasquage iteratif."""
+mask_block = torch.full((1, self.block_size), self.mask_token_id,
+dtype=torch.long, device=self.device)
+full_seq = torch.cat([prompt_ids, mask_block], dim=1)
+mask_positions = list(range(prompt_ids.shape[1], full_seq.shape[1]))
+still_masked = set(mask_positions)
+fixed_tokens = {}
+for step in range(self.n_steps):
+if not still_masked: break
+outputs = self.model(full_seq)
+logits = outputs.logits
+for pos in list(still_masked):
+probs = F.softmax(logits[0, pos, :] / temperature, dim=-1)
+max_prob, best_token = probs.max(dim=-1)
+if max_prob.item() >= self.confidence_threshold or step == self.n_steps - 1:
+if temperature > 0:
+sorted_probs, sorted_idx = probs.sort(descending=True)
+cum = sorted_probs.cumsum(dim=-1)
+sorted_probs[cum > top_p] = 0
+sorted_probs /= sorted_probs.sum() + 1e-8
+token_id = sorted_idx[torch.multinomial(sorted_probs, 1)].item()
+
+else:
+token_id = best_token.item()
+fixed_tokens[pos] = token_id
+full_seq[0, pos] = token_id
+still_masked.discard(pos)
+if verbose:
+partial = self.tokenizer.decode(
+[fixed_tokens.get(p, self.mask_token_id) for p in mask_positions],
+skip_special_tokens=True)
+print(f"\r
+
+Step {step+1}/{self.n_steps} | {partial[:60]}", end="", flush=Tru
+
+return [fixed_tokens.get(p, self.mask_token_id) for p in mask_positions]
+
+PARTIE 5 — Mémoire Hiérarchique ARIA
+Tiré de tes notes : l’IA doit avoir 5 couches de mémoire et analyser ses expériences
+passées pour détecter les incohérences.
+# ~/soe/memory/hierarchy.py
+"""
+Memoire hierarchique SOE-Orret — 5 couches inspirées de l'architecture ARIA.
+L1 Working Memory
+
+: contexte actif (~4K tokens, RAM pure)
+
+L2 Episodic Memory : experiences passees avec scoring de coherence
+L3 Semantic Memory : connaissances factuelles (FAISS)
+L4 Procedural
+
+: sequences d'actions et patterns
+
+L5 World Model
+
+: modele interne du monde / self-awareness
+
+"""
+import json, time, hashlib
+from pathlib import Path
+from dataclasses import dataclass, field, asdict
+from typing import List, Optional, Dict, Any
+
+@dataclass
+class Episode:
+id: str
+timestamp: float
+user_input: str
+ai_response: str
+
+outcome: str = "unknown"
+coherence_issues: List[str] = field(default_factory=list)
+lessons_learned: List[str] = field(default_factory=list)
+importance: float = 0.5
+
+class WorkingMemory:
+"""Contexte actif de la conversation en cours."""
+def __init__(self, max_tokens: int = 4096):
+self.max_tokens = max_tokens
+self._items = []
+self._tokens = 0
+def add(self, role: str, content: str):
+est_tokens = len(content.split()) * 1.3
+self._items.append({"role": role, "content": content})
+self._tokens += est_tokens
+while self._tokens > self.max_tokens and len(self._items) > 1:
+removed = self._items.pop(0)
+self._tokens -= len(removed["content"].split()) * 1.3
+def get_context(self):
+return [{"role": i["role"], "content": i["content"]} for i in self._items]
+def clear(self):
+self._items.clear()
+self._tokens = 0
+
+class EpisodicMemory:
+"""
+Memoire episodique — experiences avec analyse de coherence.
+Implemente la vision ARIA : "l'IA juge ses propres experiences,
+detecte les incoherences, et remodele son comportement."
+"""
+def __init__(self, path: str):
+self.path = Path(path)
+self.path.mkdir(parents=True, exist_ok=True)
+self.file = self.path / "episodes.jsonl"
+self.episodes: List[Episode] = self._load()
+def _load(self):
+eps = []
+if self.file.exists():
+
+with open(self.file) as f:
+for line in f:
+if line.strip():
+eps.append(Episode(**json.loads(line)))
+return eps
+def store(self, episode: Episode):
+self.episodes.append(episode)
+with open(self.file, "a") as f:
+f.write(json.dumps(asdict(episode), ensure_ascii=False) + "\n")
+def recall(self, query: str, n: int = 5) -> List[Episode]:
+"""Recupere les episodes les plus recents et importants."""
+return sorted(self.episodes,
+key=lambda e: e.timestamp * 0.3 + e.importance * 0.7,
+reverse=True)[:n]
+def analyze_coherence(self) -> Dict:
+"""
+Analyse les patterns d'erreur recurrents.
+C'est la vision 'retourner dans le passe' de tes notes ARIA.
+"""
+if not self.episodes:
+return {"coherence_avg": 1.0, "patterns": [], "lessons": []}
+all_issues = []
+for ep in self.episodes:
+all_issues.extend(ep.coherence_issues)
+freq = {}
+for issue in all_issues:
+freq[issue] = freq.get(issue, 0) + 1
+recurring = [i for i, c in freq.items() if c >= 2]
+all_lessons = []
+for ep in self.episodes:
+all_lessons.extend(ep.lessons_learned)
+return {
+"n_episodes": len(self.episodes),
+"recurring_patterns": recurring,
+"lessons": list(dict.fromkeys(all_lessons))[:10],
+}
+
+class OrretMemorySystem:
+"""Gestionnaire unifie de la memoire hierarchique."""
+
+def __init__(self, base_path: str = "~/soe/memory"):
+self.base = Path(base_path).expanduser()
+self.working = WorkingMemory(max_tokens=4096)
+self.episodic = EpisodicMemory(str(self.base / "episodic"))
+print(f"Memoire ARIA: {len(self.episodic.episodes)} episodes")
+def retrieve_context(self, query: str) -> str:
+"""Contexte memoriel pour enrichir le prompt."""
+parts = []
+eps = self.episodic.recall(query, n=3)
+if eps:
+parts.append("## Experiences passees pertinentes")
+for ep in eps:
+lesson = ep.lessons_learned[0] if ep.lessons_learned else ""
+parts.append(f"- [{ep.outcome}] '{ep.user_input[:60]}' -> {lesson}")
+analysis = self.episodic.analyze_coherence()
+if analysis["recurring_patterns"]:
+parts.append("## Points de vigilance")
+for p in analysis["recurring_patterns"][:2]:
+parts.append(f"- {p}")
+return "\n".join(parts)
+def record(self, user_input: str, response: str, outcome: str = "success"):
+ep = Episode(
+id=hashlib.sha256(f"{user_input}{time.time()}".encode()).hexdigest()[:16],
+timestamp=time.time(),
+user_input=user_input,
+ai_response=response,
+outcome=outcome,
+importance=min(0.5 + len(response)/2000, 1.0),
+)
+self.episodic.store(ep)
+self.working.add("assistant", response)
+
+PARTIE 6 — Agent Autonome et API
+6.1 Agent orchestrateur
+# ~/soe/agents/orchestrator.py
+
+"""
+Agent CLAW-PRIME — Coordonne dLLM + memoire + RAG web + autocritique.
+Vision de tes notes : "il a les bases pour reflechir mais se documente
+quand il veut a partir du Web. Le but est qu'il soit rapide, qu'il ne
+va pas reflechir avec des infos dont il n'a pas besoin."
+"""
+import re, time
+from typing import Optional
+try:
+from duckduckgo_search import DDGS
+HAS_DDG = True
+except ImportError:
+HAS_DDG = False
+try:
+import trafilatura
+HAS_TRAF = True
+except ImportError:
+HAS_TRAF = False
+
+SYSTEM_PROMPT = """Tu es Orret, Intelligence Artificielle Symbiotique SOE.
+Local, open source, cree par Levy, 14 ans.
+Regles :
+- Tu es direct et precis. Pas de blabla inutile.
+- Tu admets quand tu ne sais pas.
+- Tu peux demander une recherche web avec [RECHERCHE: ta requete]
+- Tu raisonnes avant de repondre.
+- Tu es une extension de la cognition humaine.
+{memory_context}"""
+
+def web_search(query: str, n: int = 2) -> str:
+"""Recherche web simple avec DuckDuckGo."""
+if not HAS_DDG:
+return ""
+results = []
+try:
+with DDGS() as ddgs:
+for r in ddgs.text(query, max_results=n):
+results.append(f"- {r.get('title','')} : {r.get('body','')[:300]}")
+except:
+
+pass
+return "Resultats web :\n" + "\n".join(results) if results else ""
+
+def needs_web(user_input: str) -> bool:
+"""Detecte si une recherche web est necessaire."""
+keywords = ['aujourd hui','recent','derniere','actualite','2025','2026',
+'version','maintenant','actuel','nouveau','vient de',
+'prix','disponible','qui est','quel est','combien']
+return any(kw in user_input.lower() for kw in keywords)
+
+class OrretAgent:
+def __init__(self, sampler, memory_system,
+enable_web=True, enable_reflection=True, verbose=False):
+self.sampler = sampler
+self.memory = memory_system
+self.enable_web = enable_web
+self.enable_reflection = enable_reflection
+self.verbose = verbose
+def _build_prompt(self, user_input: str, web_ctx: str = "") -> str:
+memory_ctx = self.memory.retrieve_context(user_input)
+system = SYSTEM_PROMPT.format(memory_context=memory_ctx).strip()
+messages = [{"role": "system", "content": system}]
+if web_ctx:
+messages.append({"role": "system", "content": f"[CONTEXTE WEB]\n{web_ctx}"})
+messages.extend(self.memory.working.get_context())
+messages.append({"role": "user", "content": user_input})
+return self.sampler.tokenizer.apply_chat_template(
+messages, tokenize=False, add_generation_prompt=True)
+def _critique(self, question: str, response: str) -> bool:
+"""Autocritique rapide : la reponse est-elle coherente ?"""
+prompt = f"""Critique en 3 mots max. "OK" si la reponse est correcte.
+Question: {question[:100]}
+Reponse: {response[:200]}
+Critique:"""
+critique = self.sampler.generate(prompt, max_new_tokens=30, temperature=0.3)
+return "OK" not in critique.upper() and len(critique.strip()) > 2
+def run(self, user_input: str) -> str:
+"""Pipeline : RAG optionnel -> dLLM -> autocritique -> memoire."""
+self.memory.working.add("user", user_input)
+
+# RAG web si necesaire
+web_ctx = ""
+if self.enable_web and needs_web(user_input):
+if self.verbose: print(f"[RAG] Recherche: {user_input[:50]}")
+web_ctx = web_search(user_input)
+# Generation
+prompt = self._build_prompt(user_input, web_ctx)
+response = self.sampler.generate(prompt, max_new_tokens=512, temperature=0.7)
+# Gerer auto-demande de recherche
+if "[RECHERCHE:" in response and self.enable_web:
+m = re.search(r'\[RECHERCHE:\s*(.*?)\]', response)
+if m:
+extra_ctx = web_search(m.group(1).strip())
+prompt2 = self._build_prompt(user_input, web_ctx + "\n" + extra_ctx)
+response = self.sampler.generate(prompt2, max_new_tokens=512)
+# Autocritique simple
+if self.enable_reflection and self._critique(user_input, response):
+if self.verbose: print("[Critique] Revision...")
+prompt_rev = self._build_prompt(
+user_input + "\n[Note interne: ameliore la precision]", web_ctx)
+
+response = self.sampler.generate(prompt_rev, max_new_tokens=512, temperature=0.5)
+self.memory.record(user_input, response, "success")
+return response
+
+6.2 API FastAPI compatible OpenAI
+# ~/soe/inference/api/server.py
+"""
+API REST SOE-Orret — Compatible OpenAI.
+Lancement : ORRET_MODEL_PATH=./orret-dllm-7b uvicorn server:app --port 8080
+Compatible : curl, openai SDK, Continue.dev, OpenWebUI
+"""
+import json, time, uuid, os
+from typing import Optional, List
+from pathlib import Path
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+import uvicorn
+
+app = FastAPI(title="SOE-Orret API", version="0.1.0")
+_agent = None
+class ChatMessage(BaseModel):
+role: str
+content: str
+class ChatRequest(BaseModel):
+model: str = "orret-dllm-7b"
+messages: List[ChatMessage]
+max_tokens: Optional[int] = 512
+temperature: Optional[float] = 0.7
+stream: Optional[bool] = False
+@app.on_event("startup")
+async def startup():
+global _agent
+model_path = os.environ.get("ORRET_MODEL_PATH", "./orret-dllm-7b")
+if not Path(model_path).exists():
+print(f"Modele non trouve: {model_path}")
+return
+from dllm_sampler import BlockDiffusionSampler
+from hierarchy import OrretMemorySystem
+from orchestrator import OrretAgent
+sampler = BlockDiffusionSampler(model_path)
+memory = OrretMemorySystem()
+_agent = OrretAgent(sampler, memory, verbose=True)
+print("SOE-Orret pret")
+@app.get("/v1/models")
+def models():
+return {"object": "list", "data": [{"id": "orret-dllm-7b", "object": "model"}]}
+@app.post("/v1/chat/completions")
+async def chat(req: ChatRequest):
+if not _agent:
+raise HTTPException(503, "Modele non charge")
+user_msgs = [m for m in req.messages if m.role == "user"]
+if not user_msgs:
+raise HTTPException(400, "Aucun message user")
+t0 = time.time()
+response = _agent.run(user_msgs[-1].content)
+return {
+
+"id": f"chatcmpl-{uuid.uuid4().hex[:8]}",
+"object": "chat.completion",
+"created": int(time.time()),
+"model": req.model,
+"choices": [{"index": 0, "message": {"role": "assistant", "content": response},
+"finish_reason": "stop"}],
+"usage": {"prompt_tokens": len(user_msgs[-1].content.split()),
+"completion_tokens": len(response.split()),
+"generation_time_s": round(time.time()-t0, 2)},
+}
+if __name__ == "__main__":
+print("SOE-Orret API -> http://localhost:8080")
+uvicorn.run(app, host="0.0.0.0", port=8080)
+
+PARTIE 7 — Integration et Lancement
+7.1 Script de lancement complet
+#!/bin/bash
+# ~/soe/scripts/launch_orret.sh
+set -euo pipefail
+SOE_DIR="$HOME/soe"
+GGUF="$SOE_DIR/models/gguf/orret-dllm-7b-Q4_K_M.gguf"
+echo "SOE-ORRET - Demarrage"
+source "$SOE_DIR/.venv/bin/activate"
+if [ -f "$GGUF" ]; then
+# Mode GGUF (plus rapide sur CPU)
+cat > "$SOE_DIR/models/gguf/Modelfile" << 'EOF'
+FROM ./orret-dllm-7b-Q4_K_M.gguf
+PARAMETER temperature 0.7
+PARAMETER top_p 0.9
+PARAMETER num_ctx 4096
+PARAMETER num_thread 4
+SYSTEM """Tu es Orret, IA Symbiotique SOE. Local-first. Open source.
+Cree par Levy, 14 ans. Direct, precis, honnete. Francais par defaut."""
+EOF
+
+cd "$SOE_DIR/models/gguf"
+ollama create orret-dllm -f Modelfile 2>/dev/null || true
+ollama serve &
+sleep 3
+echo "Orret disponible via Ollama : ollama run orret-dllm"
+else
+# Mode Python (modele HF converti)
+export ORRET_MODEL_PATH="$SOE_DIR/models/converted/orret-dllm-7b"
+cd "$SOE_DIR"
+python -m inference.api.server &
+echo "API SOE : http://localhost:8080"
+echo "Docs
+
+: http://localhost:8080/docs"
+
+fi
+echo ""
+echo "Test rapide :"
+echo "
+
+curl -s http://localhost:8080/v1/chat/completions \\"
+
+echo "
+
+-H 'Content-Type: application/json' \\"
+
+echo "
+
+-d '{\"messages\":[{\"role\":\"user\",\"content\":\"Bonjour Orret\"}]}'"
+
+7.2 Commandes essentielles au quotidien
+# Activer SOE
+source ~/soe/.venv/bin/activate
+# Lancer Orret
+~/soe/scripts/launch_orret.sh
+# Chat terminal direct
+ollama run orret-dllm
+# Via API curl
+curl -s http://localhost:8080/v1/chat/completions \
+-H "Content-Type: application/json" \
+-d '{"messages":[{"role":"user","content":"Comment fonctionne la diffusion?"}]}' \
+
+| python3 -c "import json,sys; print(json.load(sys.stdin)['choices'][0]['message']['content
+# Benchmark vitesse
+python3 -c "
+from soe.inference.engine.dllm_sampler import BlockDiffusionSampler
+import time
+s = BlockDiffusionSampler('./orret-dllm-7b')
+t0 = time.time()
+r = s.generate('Explique la theorie des graphes.', max_new_tokens=100)
+
+t1 = time.time()
+print(f'{len(r.split())/(t1-t0):.1f} tok/s')
+"
+# Voir les logs
+tail -f ~/soe/logs/inference/*.log
+
+PARTIE 8 — Roadmap et Ce que SOE-Orret fait
+d’unique
+8.1 Roadmap realiste
+PHASE 0 — Setup (1 semaine)
+[x] Fedora configure avec dependances
+[x] Qwen2.5-7B telecharge
+[x] looplib installe et fonctionnel
+[ ] Premier test du modele AR de base
+PHASE 1 — Dataset (2 semaines)
+[ ] 5000+ exemples JSONL (coding_fr, science, conversation)
+[ ] Conversion en .loop via looplib
+[ ] Upload sur Google Drive pour Colab
+Objectif : 50K tokens de qualite >= 0.7
+PHASE 2 — Conversion A2D (6-15h sur Colab)
+[ ] Executer a2d_convert.py (A100 recommande)
+[ ] 6000 steps avec LR differencies
+[ ] Sauvegarder le modele converti
+[ ] Exporter en GGUF Q4_K_M
+Objectif : modele dLLM generant correctement
+PHASE 3 — Inference et memoire (1 semaine)
+[ ] BlockDiffusionSampler local
+[ ] OrretMemorySystem persistant
+[ ] API FastAPI en ligne
+[ ] Interface web glassmorphique
+Objectif : chat interactif avec Orret dLLM
+PHASE 4 — Agent autonome (2 semaines)
+[ ] OrretAgent avec RAG web
+[ ] Module autocritique
+
+[ ] Integration POLYGONE
+Objectif : Orret qui se documente lui-meme
+PHASE 5 — Publication (1 semaine)
+[ ] GitHub public : lvs0/orret-dllm
+[ ] HuggingFace : lvs0/orret-dllm-7b
+[ ] README technique
+Objectif : communaute LocalLLM francophone
+
+8.2 Ce que SOE-Orret fait que personne d’autre ne fait
+Capacite
+
+GPT-4o
+
+Llama-3
+
+LLaDA 8B
+
+SOE-Orret
+
+Local et prive
+
+Non
+
+Oui
+
+Oui
+
+Oui
+
+Bidirectionnel dLLM
+
+Non
+
+Non
+
+Oui
+
+Oui
+
+Memoire hierarchique
+
+Partiel
+
+Non
+
+Non
+
+Oui
+
+RAG web autonome
+
+Oui
+
+Non
+
+Non
+
+Oui
+
+Autocritique integree
+
+Non
+
+Non
+
+Non
+
+Oui
+
+Format .loop natif
+
+Non
+
+Non
+
+Non
+
+Oui
+
+POLYGONE chiffrement
+
+Non
+
+Non
+
+Non
+
+Oui
+
+Open source complet
+
+Non
+
+Oui
+
+Oui
+
+Oui
+
+Francais-first
+
+Non
+
+Non
+
+Non
+
+Oui
+
+8.3 Benchmarks cibles
+VITESSE sur X250 (i5-5300U, 8GB RAM)
+Qwen2.5-7B AR GGUF Q4_K_M
+
+: ~4-6 tok/s
+
+Orret dLLM GGUF Q4_K_M
+
+: ~3-5 tok/s (similar, generation parallele)
+
+Objectif
+
+: >= 3 tok/s en reponse finale
+
+RAM requise
+GGUF Q4_K_M 7B
+
+: ~4.5 GB
+
++ Systeme Fedora
+
+: ~2.0 GB
+
++ ChromaDB memoire
+
+: ~0.5 GB
+
+Total
+
+: ~7 GB (limite sur 8GB, confort sur 16GB)
+
+Qualite post-conversion
+Comprehension francaise
+
+: >= 0.85
+
+Coding (HumanEval)
+
+: >= 0.40
+
+Reversal reasoning
+
+: >= 0.70 (avantage dLLM vs AR ~0.45)
+
+Instruction following
+
+: >= 0.80
+
+Sources techniques utilisees dans ce guide
+LLaDA (Nie et al., 2025) — Large Language Diffusion Models (arXiv:2502.09992)
+LLaDA 2.0 — Scaling to 100B via AR-to-MDLM conversion (arXiv:2512.15745)
+RND1 (Radical Numerics, 2025) — Simple AR-to-Diffusion Conversion from Qwen3
+Fast-dLLM v2 (Wu et al., 2025) — Efficient Block-Diffusion LLM via Qwen2.5
+A2D-VL (Runway, 2025) — Autoregressive-to-Diffusion VLMs from Qwen2.5-VL
+Tiny-A2D (dLLM-collection, 2025) — Open recipes for AR->diffusion 0.5-0.8B
+MDLM (Sahoo et al., 2024, NeurIPS) — Simple and Effective Masked Diffusion LMs
+
+SOE-Orret — MIT License
+Construit par Lévy, 14 ans, France, 2026
+“L’intelligence artificielle doit être libre.”
+
+
