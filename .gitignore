@@ -1,0 +1,64 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+.uv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+/tmp/
+*.tmp
+
+# MODELS — ne PAS tracker les gros fichiers
+soe/models/**/*.safetensors
+soe/models/**/*.gguf
+soe/models/**/*.bin
+soe/models/**/*.pt
+soe/models/**/*.pth
+
+# Cache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
