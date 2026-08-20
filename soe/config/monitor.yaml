@@ -1,0 +1,14 @@
+# SOE Monitor — Seuils de surveillance active_segments
+# X250 — 8 GB RAM, processus SOE principal
+
+monitor:
+  # Limites sur le nombre de segments
+  max_segments_soft: 500      # Alerter au-dessus
+  max_segments_hard: 1000     # Critique (audit nécessaire)
+
+  # Limites RAM estimées (MB)
+  max_ram_mb_soft: 200        # Alerter (>200 MB)
+  max_ram_mb_hard: 500        # Critique (>500 MB)
+
+  # Futur : intégration dans add_segment() si besoin de garde défensive
+  check_every_n_adds: 50      # Déclencher la vérification tous les 50 ajouts

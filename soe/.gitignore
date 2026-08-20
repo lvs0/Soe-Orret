@@ -25,7 +25,6 @@ venv/
 ENV/
 env/
 .venv
-.uv/
 
 # IDE
 .vscode/
@@ -50,22 +49,3 @@ Thumbs.db
 # Project specific
 /tmp/
 *.tmp
-
-# MODELS — ne PAS tracker les gros fichiers
-soe/models/**/*.safetensors
-soe/models/**/*.gguf
-soe/models/**/*.bin
-soe/models/**/*.pt
-soe/models/**/*.pth
-
-# Cache
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-
-# Agent / session state — not part of the project
-.claude/
-.claude-flow/
-.swarm/
-.mcp.json
-CLAUDE.md

@@ -1,0 +1,10 @@
+providers:
+  fireworks:
+    api_key: ""  # Ajouter si utilisé
+    model: "accounts/fireworks/models/llama-v3-8b-instruct"
+    daily_limit: 100000
+  openrouter:
+    api_key: ""  # Ajouter si utilisé
+    model: "meta-llama/llama-3-8b-instruct:free"
+routing:
+  keywords_openrouter: ["code", "programming", "debug", "fix bug"]
