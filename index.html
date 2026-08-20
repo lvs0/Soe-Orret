@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOE-Orret — Block Diffusion Language Model</title>
+<meta name="description" content="SOE-Orret: dLLM symbiotique open-source avec sécurité post-quantique. Créé par Lévy, 14 ans, France. Projet de recherche en diffusion language models + PQC.">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --bg2: #111118;
+    --fg: #e0e0e0;
+    --fg-dim: #888;
+    --accent: #7c3aed;
+    --accent2: #a78bfa;
+    --green: #10b981;
+    --border: #1e1e2e;
+    --code-bg: #0d0d14;
+    --radius: 8px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  .gradient-bg {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 50% -20%, rgba(124, 58, 237, 0.08), transparent),
+      radial-gradient(ellipse 60% 50% at 80% 80%, rgba(16, 185, 129, 0.04), transparent);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Hero */
+  .hero {
+    padding: 4rem 0 2rem;
+    text-align: center;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    background: rgba(124, 58, 237, 0.15);
+    border: 1px solid rgba(124, 58, 237, 0.3);
+    border-radius: 99px;
+    font-size: 0.8rem;
+    color: var(--accent2);
+    margin-bottom: 1.5rem;
+  }
+
+  .hero h1 {
+    font-size: 3rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    background: linear-gradient(135deg, var(--fg) 30%, var(--accent2) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 0.5rem;
+  }
+
+  .hero .subtitle {
+    font-size: 1.1rem;
+    color: var(--fg-dim);
+    margin-bottom: 1.5rem;
+  }
+
+  .hero .author {
+    font-size: 0.9rem;
+    color: var(--fg-dim);
+    margin-bottom: 2rem;
+  }
+
+  .cta-group {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1.5rem;
+    border-radius: var(--radius);
+    font-size: 0.9rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.2s;
+    cursor: pointer;
+    border: 1px solid transparent;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+
+  .btn-primary:hover {
+    background: #6d28d9;
+  }
+
+  .btn-outline {
+    background: transparent;
+    color: var(--fg);
+    border-color: var(--border);
+  }
+
+  .btn-outline:hover {
+    border-color: var(--accent);
+    background: rgba(124, 58, 237, 0.05);
+  }
+
+  /* Sections */
+  section {
+    padding: 3rem 0;
+  }
+
+  section h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    letter-spacing: -0.02em;
+  }
+
+  /* Problem / Solution */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+  }
+
+  @media (max-width: 600px) {
+    .grid-2 { grid-template-columns: 1fr; }
+    .hero h1 { font-size: 2rem; }
+    .grid-3 { grid-template-columns: 1fr !important; }
+  }
+
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+  }
+
+  .card h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--accent2);
+  }
+
+  .card p, .card li {
+    font-size: 0.9rem;
+    color: var(--fg-dim);
+  }
+
+  .card ul {
+    list-style: none;
+    padding: 0;
+  }
+
+  .card li::before {
+    content: "→ ";
+    color: var(--accent);
+  }
+
+  /* Architecture diagram */
+  .arch-diagram {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    overflow-x: auto;
+    white-space: pre;
+    color: var(--fg-dim);
+  }
+
+  .arch-diagram .hl { color: var(--accent2); }
+  .arch-diagram .hl2 { color: var(--green); }
+
+  /* Features grid */
+  .grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+
+  .feature {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    text-align: center;
+  }
+
+  .feature .icon {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .feature h4 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+  }
+
+  .feature p {
+    font-size: 0.8rem;
+    color: var(--fg-dim);
+  }
+
+  /* Status table */
+  .status-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+
+  .status-table th {
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    color: var(--fg-dim);
+    font-weight: 500;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .status-table td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid rgba(30, 30, 46, 0.5);
+  }
+
+  .status-table .ok { color: var(--green); }
+  .status-table .wip { color: #f59e0b; }
+  .status-table .todo { color: #ef4444; }
+
+  /* Footer */
+  footer {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--border);
+    margin-top: 2rem;
+    color: var(--fg-dim);
+    font-size: 0.85rem;
+  }
+
+  footer a {
+    color: var(--accent2);
+    text-decoration: none;
+  }
+
+  footer a:hover {
+    text-decoration: underline;
+  }
+</style>
+</head>
+<body>
+<div class="gradient-bg"></div>
+
+<div class="container">
+
+  <!-- Hero -->
+  <header class="hero">
+    <div class="badge">MVP démontrable — 2026</div>
+    <h1>SOE-Orret</h1>
+    <p class="subtitle">Block Diffusion Language Model open-source avec sécurité post-quantique</p>
+    <p class="author">Créé par Lévy Verpoort Scherpereel, 14 ans, France</p>
+    <div class="cta-group">
+      <a href="https://github.com/lvs0/soe-orret" class="btn btn-primary">GitHub</a>
+      <a href="#architecture" class="btn btn-outline">Architecture</a>
+      <a href="#demo" class="btn btn-outline">Démo</a>
+    </div>
+  </header>
+
+  <!-- Problem / Solution -->
+  <section id="problem">
+    <div class="grid-2">
+      <div class="card">
+        <h3>Problème</h3>
+        <p>Les modèles autoregressifs (GPT, LLaMA) génèrent du texte séquentiellement, token par token. Ils ne peuvent pas réviser ce qu'ils ont écrit, souffrent du "reversal curse", et nécessitent des GPU massifs pour une inférence rapide.</p>
+      </div>
+      <div class="card">
+        <h3>Solution</h3>
+        <p>SOE-Orret utilise la <strong>diffusion par blocs</strong> : génération parallèle de blocs de tokens, contexte bidirectionnel, révision des tokens peu confiants. Tourne sur un laptop, avec sécurité post-quantique intégrée.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Architecture -->
+  <section id="architecture">
+    <h2>Architecture</h2>
+    <div class="arch-diagram">
+                    ┌─────────────────────────────────┐
+                    │         <span class="hl">USER INPUT</span>               │
+                    └───────────────┬─────────────────┘
+                                    │
+                    ┌───────────────▼─────────────────┐
+                    │    <span class="hl2">SOE ORCHESTRATOR</span>           │
+                    │  Perception → Intuition         │
+                    │  → Analyse → Synthèse           │
+                    │  → Validation → Expression      │
+                    └──┬──────────┬──────────┬───────┘
+                       │          │          │
+          ┌────────────▼┐ ┌───────▼──────┐ ┌▼──────────┐
+          │ <span class="hl">SOE-O1</span>     │ │ <span class="hl">ARIA</span>      │ │ <span class="hl2">dLLM</span>      │
+          │ 6-Phase     │ │ 5-Layer     │ │ Block-Diff │
+          │ Reasoning   │ │ Memory      │ │ Inference  │
+          └─────────────┘ └─────────────┘ └────────────┘
+                       │
+          ┌────────────▼──────────────────────────────┐
+          │       <span class="hl">POLYGONE SECURITY</span>               │
+          │  ML-KEM-1024 | ML-DSA-65 | AES-256-GCM   │
+          └───────────────────────────────────────────┘
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section>
+    <h2>Pourquoi la diffusion ?</h2>
+    <div class="grid-3">
+      <div class="feature">
+        <div class="icon">↔️</div>
+        <h4>Bidirectionnel</h4>
+        <p>Chaque token voit tous les autres. Résout le "reversal curse".</p>
+      </div>
+      <div class="feature">
+        <div class="icon">⚡</div>
+        <h4>Parallèle</h4>
+        <p>K tokens générés par étape. Jusqu'à 10× plus rapide que l'AR.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">🔄</div>
+        <h4>Révisable</h4>
+        <p>Les tokens peu confiants sont re-générés. Auto-correction native.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Status -->
+  <section id="demo">
+    <h2>État du projet</h2>
+    <table class="status-table">
+      <tr><th>Composant</th><th>Statut</th></tr>
+      <tr><td>Inférence dLLM (block diffusion)</td><td class="wip">🟡 En cours — adaptation Fast-dLLM v2</td></tr>
+      <tr><td>Agent 6-phase reasoning</td><td class="wip">🟡 Backbone écrit</td></tr>
+      <tr><td>Mémoire ARIA 5 couches</td><td class="wip">🟡 Backbone écrit</td></tr>
+      <tr><td>Démo MVP (Ollama qwen2.5:1.5b)</td><td class="ok">✅ Fonctionnel — testé 3 prompts</td></tr>
+      <tr><td>API REST (OpenAI-compatible)</td><td class="wip">🟡 Serveur écrit, à tester</td></tr>
+      <tr><td>Intégration PQC (Polygone)</td><td class="wip">🟡 Module écrit, à brancher</td></tr>
+      <tr><td>Tests unitaires</td><td class="todo">❌ 0 tests</td></tr>
+      <tr><td>Benchmarks (HumanEval, French-BLEU)</td><td class="todo">❌ 0 benchmarks</td></tr>
+    </table>
+  </section>
+
+  <!-- Quick Start -->
+  <section>
+    <h2>Démarrage rapide</h2>
+    <div class="card">
+      <pre style="font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: var(--fg-dim);">
+# 1. Installer Ollama
+curl -fsSL https://ollama.com/install.sh | sh
+
+# 2. Télécharger le modèle
+ollama pull qwen2.5:1.5b
+
+# 3. Cloner et lancer
+git clone https://github.com/lvs0/soe-orret
+cd soe-orret
+python soe/inference.py "Explique la diffusion pour les LLMs en 3 phrases."</pre>
+    </div>
+  </section>
+
+  <!-- Research -->
+  <section>
+    <h2>Recherche</h2>
+    <div class="grid-2">
+      <div class="card">
+        <h3>dLLM State of the Art</h3>
+        <p>Basé sur Fast-dLLM v2 (NeurIPS 2025), qui adapte Qwen2.5-7B en dLLM avec seulement 1B tokens de fine-tuning. Lecture recommandée : LLaDA-8B, MDLM, DiffuLLaMA.</p>
+        <a href="https://github.com/lvs0/soe-orret/blob/main/RESEARCH_NOTES_dLLM.md" style="color: var(--accent2); font-size: 0.85rem;">→ Notes de recherche dLLM</a>
+      </div>
+      <div class="card">
+        <h3>PQC Integration</h3>
+        <p>ML-KEM-1024 (FIPS 203) + ML-DSA-65 (FIPS 204) via Polygone Network. Chiffrement post-quantique de bout en bout pour les agents IA autonomes.</p>
+        <a href="https://github.com/lvs0/Polygone-Network" style="color: var(--accent2); font-size: 0.85rem;">→ Polygone Network</a>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p>
+      <a href="https://github.com/lvs0/soe-orret">GitHub</a> ·
+      <a href="https://github.com/lvs0/soe-orret/blob/main/LICENSE">MIT License</a> ·
+      <a href="https://github.com/lvs0/Polygone-Network">Polygone</a>
+    </p>
+    <p style="margin-top: 0.5rem;">
+      SOE-Orret © 2026 Lévy Verpoort Scherpereel.
+      <br>"Ce qui est maintenant prouvé n'était autrefois qu'imaginé." — William Blake
+    </p>
+  </footer>
+
+</div>
+</body>
+</html>
